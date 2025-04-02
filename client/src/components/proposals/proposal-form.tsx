@@ -195,15 +195,43 @@ export default function ProposalForm({ proposal, onClose }: ProposalFormProps) {
         <FormField
           control={form.control}
           name="clientCpf"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>CPF do Cliente</FormLabel>
-              <FormControl>
-                <Input placeholder="000.000.000-00" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
+          render={({ field }) => {
+            // Função para formatar o CPF no padrão 031.458.655-52
+            const formatCpf = (value: string) => {
+              // Remove todos os caracteres não numéricos
+              const numbers = value.replace(/\D/g, '');
+              
+              if (numbers.length === 0) return '';
+              
+              // Aplica a formatação
+              if (numbers.length <= 3) {
+                return numbers;
+              } else if (numbers.length <= 6) {
+                return `${numbers.slice(0, 3)}.${numbers.slice(3)}`;
+              } else if (numbers.length <= 9) {
+                return `${numbers.slice(0, 3)}.${numbers.slice(3, 6)}.${numbers.slice(6)}`;
+              } else {
+                return `${numbers.slice(0, 3)}.${numbers.slice(3, 6)}.${numbers.slice(6, 9)}-${numbers.slice(9, 11)}`;
+              }
+            };
+            
+            return (
+              <FormItem>
+                <FormLabel>CPF do Cliente</FormLabel>
+                <FormControl>
+                  <Input 
+                    placeholder="000.000.000-00" 
+                    value={field.value || ''}
+                    onChange={(e) => {
+                      const formatted = formatCpf(e.target.value);
+                      field.onChange(formatted);
+                    }}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            );
+          }}
         />
         
         <FormField

@@ -141,29 +141,83 @@ export default function ClientForm({ client, onClose }: ClientFormProps) {
         <FormField
           control={form.control}
           name="cpf"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>CPF *</FormLabel>
-              <FormControl>
-                <Input placeholder="000.000.000-00" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
+          render={({ field }) => {
+            // Função para formatar o CPF no padrão 031.458.655-52
+            const formatCpf = (value: string) => {
+              // Remove todos os caracteres não numéricos
+              const numbers = value.replace(/\D/g, '');
+              
+              if (numbers.length === 0) return '';
+              
+              // Aplica a formatação
+              if (numbers.length <= 3) {
+                return numbers;
+              } else if (numbers.length <= 6) {
+                return `${numbers.slice(0, 3)}.${numbers.slice(3)}`;
+              } else if (numbers.length <= 9) {
+                return `${numbers.slice(0, 3)}.${numbers.slice(3, 6)}.${numbers.slice(6)}`;
+              } else {
+                return `${numbers.slice(0, 3)}.${numbers.slice(3, 6)}.${numbers.slice(6, 9)}-${numbers.slice(9, 11)}`;
+              }
+            };
+            
+            return (
+              <FormItem>
+                <FormLabel>CPF *</FormLabel>
+                <FormControl>
+                  <Input 
+                    placeholder="000.000.000-00" 
+                    value={field.value || ''}
+                    onChange={(e) => {
+                      const formatted = formatCpf(e.target.value);
+                      field.onChange(formatted);
+                    }}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            );
+          }}
         />
         
         <FormField
           control={form.control}
           name="phone"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Telefone *</FormLabel>
-              <FormControl>
-                <Input placeholder="(00) 00000-0000" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
+          render={({ field }) => {
+            // Função para formatar o telefone no padrão (71)98600-7832
+            const formatPhone = (value: string) => {
+              // Remove todos os caracteres não numéricos
+              const numbers = value.replace(/\D/g, '');
+              
+              if (numbers.length === 0) return '';
+              
+              // Aplica a formatação
+              if (numbers.length <= 2) {
+                return `(${numbers}`;
+              } else if (numbers.length <= 7) {
+                return `(${numbers.slice(0, 2)})${numbers.slice(2)}`;
+              } else {
+                return `(${numbers.slice(0, 2)})${numbers.slice(2, 7)}-${numbers.slice(7, 11)}`;
+              }
+            };
+            
+            return (
+              <FormItem>
+                <FormLabel>Telefone *</FormLabel>
+                <FormControl>
+                  <Input 
+                    placeholder="(00)00000-0000" 
+                    value={field.value || ''}
+                    onChange={(e) => {
+                      const formatted = formatPhone(e.target.value);
+                      field.onChange(formatted);
+                    }}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            );
+          }}
         />
         
         <FormField
