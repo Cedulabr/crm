@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { SupabaseStorage } from "./storage-supabase";
 import { z } from "zod";
-import { insertClientSchema, insertProposalSchema, insertKanbanSchema } from "@shared/schema";
+import { insertClientSchema, insertProposalSchema, insertKanbanSchema, InsertClient } from "@shared/schema";
 
 // Verifique se estamos usando o Supabase ou MemStorage com base nas variáveis de ambiente
 // Se SUPABASE_URL e SUPABASE_KEY estiverem definidos, use o SupabaseStorage
@@ -194,11 +194,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/proposals', async (req, res) => {
     try {
-      // Se tiver os campos novos clientName e clientCpf, precisamos tratar especialmente
-      const { clientName, clientCpf, ...proposalData } = req.body;
+      // Separar os campos de cliente adicionais
+      const { clientName, clientCpf, clientPhone, ...proposalData } = req.body;
+      
+      // Criar ou atualizar o cliente com base nas informações da proposta
+      let clientId = null;
+      
+      if (clientName) {
+        // Verificar se existe um cliente com o mesmo CPF (se fornecido)
+        let existingClient = null;
+        if (clientCpf) {
+          // Procurar todos os clientes
+          const allClients = await storage.getClients();
+          // Encontrar o cliente com o mesmo CPF
+          existingClient = allClients.find(client => client.cpf === clientCpf);
+        }
+        
+        if (existingClient) {
+          // Atualizar o cliente existente se necessário
+          const updateData: Partial<InsertClient> = {
+            name: clientName
+          };
+          
+          if (clientPhone) {
+            updateData.phone = clientPhone;
+          }
+          
+          const updatedClient = await storage.updateClient(existingClient.id, updateData);
+          if (updatedClient) {
+            clientId = updatedClient.id;
+          }
+        } else {
+          // Criar um novo cliente
+          const newClient = {
+            name: clientName,
+            cpf: clientCpf || null,
+            phone: clientPhone || null,
+            convenioId: proposalData.convenioId || null,
+            birthDate: null,
+            contact: null,
+            email: null,
+            company: null
+          };
+          
+          const createdClient = await storage.createClient(newClient);
+          clientId = createdClient.id;
+        }
+      }
+      
+      // Adicionar o ID do cliente à proposta
+      const completeProposalData = {
+        ...proposalData,
+        clientId: clientId
+      };
       
       // Validar os dados da proposta
-      const validProposalData = insertProposalSchema.parse(proposalData);
+      const validProposalData = insertProposalSchema.parse(completeProposalData);
       
       // Criar uma proposta com os dados validados
       const proposal = await storage.createProposal(validProposalData);
@@ -208,6 +259,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: 'Invalid proposal data', errors: error.errors });
       }
+      console.error("Erro ao criar proposta:", error);
       res.status(500).json({ message: 'Error creating proposal' });
     }
   });
@@ -217,7 +269,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const id = parseInt(req.params.id);
       
       // Separar os campos de cliente adicionais
-      const { clientName, clientCpf, ...proposalData } = req.body;
+      const { clientName, clientCpf, clientPhone, ...proposalData } = req.body;
+      
+      // Atualizar o cliente associado à proposta (se aplicável)
+      const proposal = await storage.getProposal(id);
+      if (proposal && proposal.clientId && clientName) {
+        const updateData: Partial<InsertClient> = {
+          name: clientName
+        };
+        
+        if (clientCpf) {
+          updateData.cpf = clientCpf;
+        }
+        
+        if (clientPhone) {
+          updateData.phone = clientPhone;
+        }
+        
+        await storage.updateClient(proposal.clientId, updateData);
+      }
       
       const validProposalData = insertProposalSchema.partial().parse(proposalData);
       const updatedProposal = await storage.updateProposal(id, validProposalData);
@@ -231,6 +301,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: 'Invalid proposal data', errors: error.errors });
       }
+      console.error("Erro ao atualizar proposta:", error);
       res.status(500).json({ message: 'Error updating proposal' });
     }
   });

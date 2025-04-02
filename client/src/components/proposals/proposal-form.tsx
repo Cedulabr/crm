@@ -18,6 +18,7 @@ const proposalFormSchema = insertProposalSchema
   .extend({
     clientName: z.string().min(3, { message: "Nome do cliente é obrigatório" }),
     clientCpf: z.string().optional(),
+    clientPhone: z.string().optional(),
     productId: z.string().optional(),
     convenioId: z.string().optional(),
     bankId: z.string().optional(),
@@ -60,6 +61,7 @@ export default function ProposalForm({ proposal, onClose }: ProposalFormProps) {
   const defaultValues: Partial<ProposalFormData> = {
     clientName: proposal?.client?.name || "",
     clientCpf: proposal?.client?.cpf || "",
+    clientPhone: proposal?.client?.phone || "",
     productId: proposal?.productId?.toString() || "",
     convenioId: proposal?.convenioId?.toString() || "",
     bankId: proposal?.bankId?.toString() || "",
@@ -85,6 +87,7 @@ export default function ProposalForm({ proposal, onClose }: ProposalFormProps) {
       const formattedData = {
         clientName: data.clientName,
         clientCpf: data.clientCpf,
+        clientPhone: data.clientPhone,
         productId: data.productId ? parseInt(data.productId) : undefined,
         convenioId: data.convenioId ? parseInt(data.convenioId) : undefined,
         bankId: data.bankId ? parseInt(data.bankId) : undefined,
@@ -125,6 +128,7 @@ export default function ProposalForm({ proposal, onClose }: ProposalFormProps) {
       const formattedData = {
         clientName: data.formData.clientName,
         clientCpf: data.formData.clientCpf,
+        clientPhone: data.formData.clientPhone,
         productId: data.formData.productId ? parseInt(data.formData.productId) : undefined,
         convenioId: data.formData.convenioId ? parseInt(data.formData.convenioId) : undefined,
         bankId: data.formData.bankId ? parseInt(data.formData.bankId) : undefined,
@@ -200,6 +204,46 @@ export default function ProposalForm({ proposal, onClose }: ProposalFormProps) {
               <FormMessage />
             </FormItem>
           )}
+        />
+        
+        <FormField
+          control={form.control}
+          name="clientPhone"
+          render={({ field }) => {
+            // Função para formatar o telefone no padrão (71)98600-7832
+            const formatPhone = (value: string) => {
+              // Remove todos os caracteres não numéricos
+              const numbers = value.replace(/\D/g, '');
+              
+              if (numbers.length === 0) return '';
+              
+              // Aplica a formatação
+              if (numbers.length <= 2) {
+                return `(${numbers}`;
+              } else if (numbers.length <= 7) {
+                return `(${numbers.slice(0, 2)})${numbers.slice(2)}`;
+              } else {
+                return `(${numbers.slice(0, 2)})${numbers.slice(2, 7)}-${numbers.slice(7, 11)}`;
+              }
+            };
+            
+            return (
+              <FormItem>
+                <FormLabel>Telefone do Cliente</FormLabel>
+                <FormControl>
+                  <Input 
+                    placeholder="(00)00000-0000" 
+                    value={field.value || ''}
+                    onChange={(e) => {
+                      const formatted = formatPhone(e.target.value);
+                      field.onChange(formatted);
+                    }}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            );
+          }}
         />
         
         <FormField
