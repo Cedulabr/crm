@@ -14,7 +14,6 @@ import { useToast } from "@/hooks/use-toast";
 
 // Extended schema with validations
 const clientFormSchema = insertClientSchema.extend({
-  email: z.string().email("Email inválido").optional().or(z.literal("")),
   name: z.string().min(3, "Nome precisa ter pelo menos 3 caracteres").nonempty("Nome é obrigatório"),
   phone: z.string().nonempty("Telefone é obrigatório"),
   cpf: z.string().nonempty("CPF é obrigatório"),
@@ -41,12 +40,10 @@ export default function ClientForm({ client, onClose }: ClientFormProps) {
   // Define default values based on whether we're editing or creating
   const defaultValues: Partial<ClientFormData> = {
     name: client?.name || "",
-    email: client?.email || "",
     phone: client?.phone || "",
     cpf: client?.cpf || "",
     birthDate: client?.birthDate || "",
     convenioId: client?.convenioId ? client.convenioId.toString() : "",
-    company: client?.company || "",
     contact: client?.contact || "",
   };
 
@@ -211,33 +208,7 @@ export default function ClientForm({ client, onClose }: ClientFormProps) {
           )}
         />
         
-        <FormField
-          control={form.control}
-          name="email"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Email</FormLabel>
-              <FormControl>
-                <Input placeholder="email@exemplo.com" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        
-        <FormField
-          control={form.control}
-          name="company"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Empresa</FormLabel>
-              <FormControl>
-                <Input placeholder="Nome da empresa" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+
         
         {!client && (
           <FormField

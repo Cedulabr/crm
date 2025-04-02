@@ -112,9 +112,10 @@ export class MemStorage implements IStorage {
 
     // Initialize Convenios
     const convenios = [
-      { name: "INSS" },
-      { name: "Privado" },
-      { name: "Empresarial" }
+      { name: "Beneficiário do INSS" },
+      { name: "Servidor Público" },
+      { name: "LOAS / BPC" },
+      { name: "Carteira assinada CLT" }
     ];
     
     convenios.forEach(c => this.createConvenio(c));
