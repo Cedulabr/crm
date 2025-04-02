@@ -42,6 +42,70 @@ import jwt from 'jsonwebtoken';
 export class DatabaseStorage implements IStorage {
   constructor() {
     console.log('📦 Inicializando DatabaseStorage com PostgreSQL e Drizzle');
+    this.initializeDefaultData();
+  }
+  
+  /**
+   * Inicializa dados padrão no banco de dados se não existirem
+   */
+  private async initializeDefaultData() {
+    try {
+      // Verificar se já existem dados
+      const existingProducts = await this.getProducts();
+      const existingConvenios = await this.getConvenios();
+      const existingBanks = await this.getBanks();
+      
+      // Inicializar produtos se não existirem
+      if (existingProducts.length === 0) {
+        console.log('Inicializando produtos padrão...');
+        const defaultProducts = [
+          { name: 'Novo empréstimo', price: 'R$ 0,00' },
+          { name: 'Refinanciamento', price: 'R$ 0,00' },
+          { name: 'Portabilidade', price: 'R$ 0,00' },
+          { name: 'Cartão', price: 'R$ 0,00' },
+          { name: 'Saque FGTS', price: 'R$ 0,00' }
+        ];
+        
+        for (const product of defaultProducts) {
+          await this.createProduct(product);
+        }
+      }
+      
+      // Inicializar convênios se não existirem
+      if (existingConvenios.length === 0) {
+        console.log('Inicializando convênios padrão...');
+        const defaultConvenios = [
+          { name: 'Beneficiário do INSS', price: 'R$ 0,00' },
+          { name: 'Servidor Público', price: 'R$ 0,00' },
+          { name: 'LOAS/BPC', price: 'R$ 0,00' },
+          { name: 'Carteira assinada CLT', price: 'R$ 0,00' }
+        ];
+        
+        for (const convenio of defaultConvenios) {
+          await this.createConvenio(convenio);
+        }
+      }
+      
+      // Inicializar bancos se não existirem
+      if (existingBanks.length === 0) {
+        console.log('Inicializando bancos padrão...');
+        const defaultBanks = [
+          { name: 'Banco do Brasil', price: 'R$ 0,00' },
+          { name: 'Caixa Econômica Federal', price: 'R$ 0,00' },
+          { name: 'Itaú', price: 'R$ 0,00' },
+          { name: 'Bradesco', price: 'R$ 0,00' },
+          { name: 'Santander', price: 'R$ 0,00' }
+        ];
+        
+        for (const bank of defaultBanks) {
+          await this.createBank(bank);
+        }
+      }
+      
+      console.log('Inicialização de dados padrão concluída!');
+    } catch (error) {
+      console.error('Erro ao inicializar dados padrão:', error);
+    }
   }
 
   // Métodos para Cliente

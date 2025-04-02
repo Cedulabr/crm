@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import KanbanColumn from "@/components/kanban/kanban-column";
 import ClientForm from "@/components/clients/client-form";
-import { type ClientWithKanban } from "@shared/schema";
+import ProposalForm from "@/components/proposals/proposal-form";
+import { type ClientWithKanban, type ProposalWithDetails } from "@shared/schema";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 
@@ -36,7 +37,8 @@ const COLUMN_COLORS: Record<KanbanColumnType, string> = {
 };
 
 export default function Kanban() {
-  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isClientFormOpen, setIsClientFormOpen] = useState(false);
+  const [isProposalFormOpen, setIsProposalFormOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<ClientWithKanban | null>(null);
   const { toast } = useToast();
   
@@ -78,7 +80,7 @@ export default function Kanban() {
   // Handle editing a client
   const handleEditClient = (client: ClientWithKanban) => {
     setSelectedClient(client);
-    setIsFormOpen(true);
+    setIsClientFormOpen(true);
   };
 
   return (
@@ -88,7 +90,7 @@ export default function Kanban() {
           <h1 className="text-2xl font-medium text-neutral-500">Kanban de Clientes</h1>
           <Button 
             className="bg-blue-800 hover:bg-blue-700 text-white shadow-sm"
-            onClick={() => setIsFormOpen(true)}
+            onClick={() => setIsProposalFormOpen(true)}
           >
             <span className="material-icons mr-1">add</span>
             Nova Proposta
@@ -116,18 +118,34 @@ export default function Kanban() {
           </div>
         )}
         
-        {/* Client Dialog (New/Edit) */}
-        <Dialog open={isFormOpen} onOpenChange={(open) => {
-          setIsFormOpen(open);
+        {/* Client Dialog (Edit) */}
+        <Dialog open={isClientFormOpen} onOpenChange={(open) => {
+          setIsClientFormOpen(open);
           if (!open) setSelectedClient(null);
         }}>
           <DialogContent className="max-w-md">
-            <DialogTitle>{selectedClient ? 'Editar Cliente' : 'Novo Cliente'}</DialogTitle>
+            <DialogTitle>Editar Cliente</DialogTitle>
             <ClientForm 
               client={selectedClient} 
               onClose={() => {
-                setIsFormOpen(false);
+                setIsClientFormOpen(false);
                 setSelectedClient(null);
+              }} 
+            />
+          </DialogContent>
+        </Dialog>
+        
+        {/* Proposal Dialog (New) */}
+        <Dialog open={isProposalFormOpen} onOpenChange={(open) => {
+          setIsProposalFormOpen(open);
+        }}>
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogTitle>Nova Proposta</DialogTitle>
+            <ProposalForm 
+              proposal={null} 
+              onClose={() => {
+                setIsProposalFormOpen(false);
+                queryClient.invalidateQueries({ queryKey: ['/api/clients-with-kanban'] });
               }} 
             />
           </DialogContent>
