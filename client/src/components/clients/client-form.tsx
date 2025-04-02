@@ -278,7 +278,7 @@ export default function ClientForm({ client, onClose }: ClientFormProps) {
           <Button 
             type="submit"
             disabled={isSubmitting}
-            className="bg-primary-dark hover:bg-primary"
+            className="bg-blue-800 hover:bg-blue-700 text-white"
           >
             {isSubmitting ? "Salvando..." : "Salvar Cliente"}
           </Button>

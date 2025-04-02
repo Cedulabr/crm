@@ -90,7 +90,7 @@ export default function Clients() {
           </div>
           
           <Button 
-            className="bg-primary-dark hover:bg-primary text-white shadow-sm"
+            className="bg-blue-800 hover:bg-blue-700 text-white shadow-sm"
             onClick={() => setIsFormOpen(true)}
           >
             <span className="material-icons mr-1">add</span>

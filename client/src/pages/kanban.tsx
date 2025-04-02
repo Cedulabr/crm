@@ -87,11 +87,11 @@ export default function Kanban() {
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-medium text-neutral-500">Kanban de Clientes</h1>
           <Button 
-            className="bg-primary-dark hover:bg-primary text-white shadow-sm"
+            className="bg-blue-800 hover:bg-blue-700 text-white shadow-sm"
             onClick={() => setIsFormOpen(true)}
           >
             <span className="material-icons mr-1">add</span>
-            Novo Cliente
+            Nova Proposta
           </Button>
         </div>
         

@@ -297,8 +297,7 @@ export default function ProposalForm({ proposal, onClose }: ProposalFormProps) {
                     </FormControl>
                     <SelectContent>
                       <SelectItem value="lead">Nova Proposta</SelectItem>
-                      <SelectItem value="qualificacao">Qualificação</SelectItem>
-                      <SelectItem value="em_negociacao">Em Negociação</SelectItem>
+                      <SelectItem value="qualificacao">Em Andamento</SelectItem>
                       <SelectItem value="em_analise">Pendente</SelectItem>
                       <SelectItem value="recusada">Recusada</SelectItem>
                       <SelectItem value="aceita">Finalizada</SelectItem>
@@ -474,7 +473,7 @@ export default function ProposalForm({ proposal, onClose }: ProposalFormProps) {
           <Button 
             type="submit"
             disabled={isSubmitting}
-            className="bg-primary-dark hover:bg-primary"
+            className="bg-blue-800 hover:bg-blue-700 text-white"
           >
             {isSubmitting ? "Salvando..." : "Salvar Proposta"}
           </Button>
