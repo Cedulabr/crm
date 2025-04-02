@@ -43,7 +43,7 @@ export default function ClientForm({ client, onClose }: ClientFormProps) {
     phone: client?.phone || "",
     cpf: client?.cpf || "",
     birthDate: client?.birthDate || "",
-    convenioId: client?.convenioId ? client.convenioId.toString() : "",
+    convenioId: client?.convenioId || 0,
     contact: client?.contact || "",
   };
 
@@ -173,8 +173,8 @@ export default function ClientForm({ client, onClose }: ClientFormProps) {
             <FormItem>
               <FormLabel>Convênio *</FormLabel>
               <Select 
-                onValueChange={field.onChange} 
-                defaultValue={field.value}
+                onValueChange={(value) => field.onChange(Number(value))} 
+                defaultValue={field.value !== null && field.value !== undefined ? String(field.value) : ""}
               >
                 <FormControl>
                   <SelectTrigger>
@@ -182,8 +182,8 @@ export default function ClientForm({ client, onClose }: ClientFormProps) {
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {convenios?.map(convenio => (
-                    <SelectItem key={convenio.id} value={convenio.id.toString()}>
+                  {Array.isArray(convenios) && convenios.map((convenio: any) => (
+                    <SelectItem key={convenio.id} value={String(convenio.id)}>
                       {convenio.name}
                     </SelectItem>
                   ))}

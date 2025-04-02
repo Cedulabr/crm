@@ -10,19 +10,22 @@ interface ProposalCardProps {
   onDelete: () => void;
 }
 
+// Define valid badge variants
+type BadgeVariant = "default" | "destructive" | "outline" | "secondary";
+
 // Helper to get status badge properties
-function getStatusBadgeProps(status: string | undefined) {
+function getStatusBadgeProps(status: string | undefined): { variant: BadgeVariant, label: string } {
   switch(status) {
     case 'em_negociacao':
-      return { variant: 'primary' as const, label: 'Em Negociação' };
+      return { variant: 'default', label: 'Em Negociação' };
     case 'aceita':
-      return { variant: 'success' as const, label: 'Aceita' };
+      return { variant: 'default', label: 'Aceita' };
     case 'em_analise':
-      return { variant: 'secondary' as const, label: 'Em Análise' };
+      return { variant: 'secondary', label: 'Em Análise' };
     case 'recusada':
-      return { variant: 'destructive' as const, label: 'Recusada' };
+      return { variant: 'destructive', label: 'Recusada' };
     default:
-      return { variant: 'outline' as const, label: 'Desconhecido' };
+      return { variant: 'outline', label: 'Desconhecido' };
   }
 }
 
@@ -38,9 +41,11 @@ export default function ProposalCard({ proposal, onEdit, onDelete }: ProposalCar
               {label}
             </Badge>
             <h3 className="text-lg font-medium mt-2 text-neutral-500">
-              {proposal.client?.company || 'Empresa não especificada'}
+              {proposal.client?.name || 'Cliente não especificado'}
             </h3>
-            <p className="text-sm text-neutral-400">{proposal.client?.name}</p>
+            <p className="text-sm text-neutral-400">
+              {proposal.client?.cpf ? `CPF: ${proposal.client.cpf}` : 'CPF não informado'}
+            </p>
           </div>
           <div className="flex space-x-1">
             <Button 

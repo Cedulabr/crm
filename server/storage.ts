@@ -103,9 +103,11 @@ export class MemStorage implements IStorage {
   private initializeSampleData() {
     // Initialize Products
     const products = [
-      { name: "Empréstimo Consignado", price: "50000" },
-      { name: "Crédito Imobiliário", price: "200000" },
-      { name: "Financiamento", price: "100000" }
+      { name: "Novo empréstimo", price: "50000" },
+      { name: "Refinanciamento", price: "20000" },
+      { name: "Portabilidade", price: "100000" },
+      { name: "Cartão", price: "10000" },
+      { name: "Saque FGTS", price: "5000" }
     ];
     
     products.forEach(p => this.createProduct(p));
@@ -122,10 +124,46 @@ export class MemStorage implements IStorage {
 
     // Initialize Banks
     const banks = [
-      { name: "Banco Alpha" },
-      { name: "Banco Beta" },
-      { name: "Banco Gamma" },
-      { name: "Banco Delta" }
+      { name: "BANCO BANRISUL" },
+      { name: "BANCO PICPAY" },
+      { name: "BANCO FOX" },
+      { name: "BANCO HAPPY" },
+      { name: "BANCO BMG" },
+      { name: "BANCO C6 BANK" },
+      { name: "BANCO CAIXA ECONÔMICA FEDERAL" },
+      { name: "BANCO CREFAZ" },
+      { name: "BANCO CREFISA" },
+      { name: "BANCO DAYCOVAL" },
+      { name: "BANCO DIGIO S.A." },
+      { name: "BANCO DO BRASIL" },
+      { name: "BANCO INBURSA S.A." },
+      { name: "BANCO ITAÚ CONSIGNADO" },
+      { name: "BANCO MASTER" },
+      { name: "BANCO MERCANTIL DO BRASIL" },
+      { name: "BANCO PAN" },
+      { name: "BANCO PARANÁ" },
+      { name: "BANCO PRATA DIGITAL" },
+      { name: "BANCO QUERO MAIS CREDITO" },
+      { name: "BANCO SAFRA" },
+      { name: "BANCO SANTANDER" },
+      { name: "BANCO VCTEX" },
+      { name: "BRB - CRÉDITO, FINANCIAMENTO E INVESTIMENTO" },
+      { name: "C6 AUTO - CONSIG" },
+      { name: "FACTA FINANCEIRA" },
+      { name: "FINANTO BANK" },
+      { name: "HUB CRÉDITOS" },
+      { name: "ICRED FINANCEIRA" },
+      { name: "KOVR SEGURADORA" },
+      { name: "LOTUS" },
+      { name: "MEU CASHCARD" },
+      { name: "NOVO SAQUE FINANCEIRA" },
+      { name: "PRESENÇA BANK" },
+      { name: "TA QUITADO" },
+      { name: "UY3 SOCIEDADE DE CRÉDITO DIRETO S/A" },
+      { name: "V8 DIGITAL" },
+      { name: "VEMCARD" },
+      { name: "X FORCE" },
+      { name: "X3 BANK" }
     ];
     
     banks.forEach(b => this.createBank(b));

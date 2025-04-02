@@ -16,10 +16,15 @@ import { useToast } from "@/hooks/use-toast";
 const proposalFormSchema = insertProposalSchema
   .omit({ createdAt: true })
   .extend({
+    clientId: z.string().optional(),
+    productId: z.string().optional(),
+    convenioId: z.string().optional(),
+    bankId: z.string().optional(),
     value: z.string().refine(
       (val) => !isNaN(Number(val)) && Number(val) > 0,
       { message: "Valor deve ser um número maior que zero" }
     ),
+    status: z.string(),
   });
 
 type ProposalFormData = z.infer<typeof proposalFormSchema>;
@@ -174,9 +179,9 @@ export default function ProposalForm({ proposal, onClose }: ProposalFormProps) {
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {clients?.map(client => (
+                  {Array.isArray(clients) && clients.map((client: any) => (
                     <SelectItem key={client.id} value={client.id.toString()}>
-                      {client.name} - {client.company}
+                      {client.name} {client.cpf ? `- CPF: ${client.cpf}` : ''}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -202,7 +207,7 @@ export default function ProposalForm({ proposal, onClose }: ProposalFormProps) {
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {products?.map(product => (
+                  {Array.isArray(products) && products.map((product: any) => (
                     <SelectItem key={product.id} value={product.id.toString()}>
                       {product.name}
                     </SelectItem>
@@ -230,7 +235,7 @@ export default function ProposalForm({ proposal, onClose }: ProposalFormProps) {
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {convenios?.map(convenio => (
+                  {Array.isArray(convenios) && convenios.map((convenio: any) => (
                     <SelectItem key={convenio.id} value={convenio.id.toString()}>
                       {convenio.name}
                     </SelectItem>
@@ -258,7 +263,7 @@ export default function ProposalForm({ proposal, onClose }: ProposalFormProps) {
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {banks?.map(bank => (
+                  {Array.isArray(banks) && banks.map((bank: any) => (
                     <SelectItem key={bank.id} value={bank.id.toString()}>
                       {bank.name}
                     </SelectItem>
