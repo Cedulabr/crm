@@ -1255,3 +1255,6 @@ export class SupabaseStorage implements IStorage {
     return true;
   }
 }
+
+// Criando e exportando uma instância da classe SupabaseStorage
+export const supabaseStorage = new SupabaseStorage();

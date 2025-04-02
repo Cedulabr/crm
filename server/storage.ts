@@ -678,8 +678,15 @@ export class MemStorage implements IStorage {
   }
 }
 
-// Import da implementação do DatabaseStorage
+// Import das implementações de armazenamento
 import { databaseStorage } from './DatabaseStorage';
+import { supabaseStorage } from './storage-supabase';
 
-// Utilizando DatabaseStorage para persistência dos dados no PostgreSQL
+// Escolhendo qual armazenamento usar
+// Utilize comentários para escolher entre PostgreSQL ou Supabase
+
+// Utilizando PostgreSQL local até que as tabelas sejam criadas no Supabase
 export const storage = databaseStorage;
+
+// Para usar Supabase quando as tabelas estiverem prontas, descomente a linha abaixo e comente a linha acima
+// export const storage = supabaseStorage;
