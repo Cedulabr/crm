@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { SupabaseStorage } from "./storage-supabase";
 import { z } from "zod";
-import { insertClientSchema, insertProposalSchema, insertKanbanSchema, InsertClient } from "@shared/schema";
+import { insertClientSchema, insertProposalSchema, insertKanbanSchema, InsertClient, insertUserSchema, registerUserSchema } from "@shared/schema";
 
 // Verifique se estamos usando o Supabase ou MemStorage com base nas variáveis de ambiente
 // Se SUPABASE_URL e SUPABASE_KEY estiverem definidos, use o SupabaseStorage
@@ -466,6 +466,110 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(recentActivity);
     } catch (error) {
       res.status(500).json({ message: 'Error fetching recent activity' });
+    }
+  });
+
+  // =================
+  // User endpoints
+  // =================
+  
+  app.get('/api/users', async (req, res) => {
+    try {
+      const users = await storage.getUsers();
+      res.json(users);
+    } catch (error) {
+      res.status(500).json({ message: 'Error fetching users' });
+    }
+  });
+
+  app.get('/api/users/:id', async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const user = await storage.getUserById(id);
+      
+      if (!user) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+      
+      res.json(user);
+    } catch (error) {
+      res.status(500).json({ message: 'Error fetching user' });
+    }
+  });
+
+  app.post('/api/users', async (req, res) => {
+    try {
+      // Validar os dados do usuário incluindo a senha
+      const userData = registerUserSchema.parse(req.body);
+      const user = await storage.createUser(userData);
+      
+      // Retornar o usuário criado sem a senha
+      res.status(201).json(user);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: 'Invalid user data', errors: error.errors });
+      }
+      console.error("Erro ao criar usuário:", error);
+      res.status(500).json({ message: 'Error creating user' });
+    }
+  });
+
+  app.patch('/api/users/:id', async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      // Validar os dados parciais do usuário
+      const userData = insertUserSchema.partial().parse(req.body);
+      const updatedUser = await storage.updateUser(id, userData);
+      
+      if (!updatedUser) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+      
+      res.json(updatedUser);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: 'Invalid user data', errors: error.errors });
+      }
+      console.error("Erro ao atualizar usuário:", error);
+      res.status(500).json({ message: 'Error updating user' });
+    }
+  });
+
+  app.delete('/api/users/:id', async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const deleted = await storage.deleteUser(id);
+      
+      if (!deleted) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+      
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: 'Error deleting user' });
+    }
+  });
+
+  // Rota para redefinir a senha de um usuário
+  app.post('/api/users/:id/reset-password', async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const user = await storage.getUserById(id);
+      
+      if (!user) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+      
+      const success = await storage.resetPassword(user.email);
+      
+      if (success) {
+        res.json({ message: 'Password reset email sent' });
+      } else {
+        res.status(500).json({ message: 'Failed to reset password' });
+      }
+    } catch (error) {
+      res.status(500).json({ message: 'Error resetting password' });
     }
   });
 

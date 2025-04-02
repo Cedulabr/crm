@@ -1,11 +1,12 @@
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 type SidebarNavItem = {
   href: string;
   icon: string;
   label: string;
+  roles?: string[]; // Funções de usuário permitidas para ver este item
 };
 
 const mainNavItems: SidebarNavItem[] = [
@@ -13,6 +14,12 @@ const mainNavItems: SidebarNavItem[] = [
   { href: "/clients", icon: "people", label: "Clientes" },
   { href: "/proposals", icon: "description", label: "Propostas" },
   { href: "/kanban", icon: "view_kanban", label: "Kanban" },
+  { 
+    href: "/users", 
+    icon: "manage_accounts", 
+    label: "Usuários",
+    roles: ["superadmin", "manager"] // Apenas admins e gestores podem ver
+  },
 ];
 
 const quickFilterItems: SidebarNavItem[] = [
@@ -23,6 +30,30 @@ const quickFilterItems: SidebarNavItem[] = [
 export default function Sidebar() {
   const [location] = useLocation();
   const [expanded, setExpanded] = useState(true);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+
+  // Carregar o usuário atual do localStorage
+  useEffect(() => {
+    const userString = localStorage.getItem("user");
+    if (userString) {
+      try {
+        const user = JSON.parse(userString);
+        setCurrentUser(user);
+      } catch (e) {
+        console.error("Erro ao carregar dados do usuário:", e);
+      }
+    }
+  }, []);
+
+  // Filtrar os itens de menu com base nas permissões do usuário
+  const filteredNavItems = mainNavItems.filter(item => {
+    // Se o item não tem restrições de função, mostrar para todos
+    if (!item.roles) return true;
+    // Se usuário não está carregado, não mostrar itens com restrição
+    if (!currentUser) return false;
+    // Verificar se a função do usuário está na lista de funções permitidas
+    return item.roles.includes(currentUser.role);
+  });
 
   return (
     <aside
@@ -43,7 +74,7 @@ export default function Sidebar() {
         
         <nav className="flex-1 overflow-y-auto p-4">
           <ul className="space-y-1">
-            {mainNavItems.map((item) => (
+            {filteredNavItems.map((item) => (
               <li key={item.href}>
                 <Link href={item.href}>
                   <a

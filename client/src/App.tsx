@@ -8,6 +8,7 @@ import Dashboard from "@/pages/dashboard";
 import Clients from "@/pages/clients";
 import Proposals from "@/pages/proposals";
 import Kanban from "@/pages/kanban";
+import Users from "@/pages/users";
 import Login from "@/pages/login";
 import Layout from "@/components/layout/layout";
 
@@ -67,6 +68,7 @@ function Router() {
             <Route path="/clients" component={Clients} />
             <Route path="/proposals" component={Proposals} />
             <Route path="/kanban" component={Kanban} />
+            <Route path="/users" component={Users} />
             <Route component={NotFound} />
           </Switch>
         </Layout>
