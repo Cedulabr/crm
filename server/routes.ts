@@ -43,13 +43,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/clients', async (req, res) => {
     try {
-      const clientData = insertClientSchema.parse(req.body);
+      // Adicionar organização padrão e usuário criador padrão se não forem fornecidos
+      const data = { 
+        ...req.body,
+        organizationId: req.body.organizationId || 1,
+        createdById: req.body.createdById || 1
+      };
+      
+      const clientData = insertClientSchema.parse(data);
       const client = await storage.createClient(clientData);
       res.status(201).json(client);
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: 'Invalid client data', errors: error.errors });
       }
+      console.error("Erro ao criar cliente:", error);
       res.status(500).json({ message: 'Error creating client' });
     }
   });
@@ -234,7 +242,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             birthDate: null,
             contact: null,
             email: null,
-            company: null
+            company: null,
+            organizationId: 1, // Organização padrão
+            createdById: 1 // Usuário admin padrão
           };
           
           const createdClient = await storage.createClient(newClient);
@@ -242,10 +252,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Adicionar o ID do cliente à proposta
+      // Adicionar o ID do cliente à proposta e outros campos necessários
       const completeProposalData = {
         ...proposalData,
-        clientId: clientId
+        clientId: clientId,
+        organizationId: proposalData.organizationId || 1,
+        createdById: proposalData.createdById || 1,
+        status: proposalData.status || 'Nova proposta'
       };
       
       // Validar os dados da proposta
@@ -499,8 +512,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/users', async (req, res) => {
     try {
+      // Adicionar organização padrão se não for fornecida
+      const data = { 
+        ...req.body,
+        organizationId: req.body.organizationId || 1
+      };
+      
       // Validar os dados do usuário incluindo a senha
-      const userData = registerUserSchema.parse(req.body);
+      const userData = registerUserSchema.parse(data);
       const user = await storage.createUser(userData);
       
       // Retornar o usuário criado sem a senha

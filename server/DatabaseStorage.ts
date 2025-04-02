@@ -54,6 +54,7 @@ export class DatabaseStorage implements IStorage {
       const existingProducts = await this.getProducts();
       const existingConvenios = await this.getConvenios();
       const existingBanks = await this.getBanks();
+      const existingOrganizations = await this.getOrganizations();
       
       // Inicializar produtos se não existirem
       if (existingProducts.length === 0) {
@@ -133,6 +134,28 @@ export class DatabaseStorage implements IStorage {
         }
       }
       
+      // Inicializar organização padrão se não existir
+      if (existingOrganizations.length === 0) {
+        console.log('Inicializando organização padrão...');
+        const defaultOrganization = {
+          name: 'Empresa Padrão',
+          createdAt: new Date()
+        };
+        
+        await this.createOrganization(defaultOrganization);
+        
+        // Criar usuário admin padrão
+        const defaultAdmin = {
+          name: 'Administrador',
+          email: 'admin@empresa.com',
+          password: 'senha123',
+          role: 'superadmin',
+          organizationId: 1
+        };
+        
+        await this.createUser(defaultAdmin);
+      }
+      
       console.log('Inicialização de dados padrão concluída!');
     } catch (error) {
       console.error('Erro ao inicializar dados padrão:', error);
@@ -169,8 +192,8 @@ export class DatabaseStorage implements IStorage {
       // Criar entrada no kanban automaticamente
       const kanbanEntry: InsertKanban = {
         clientId: newClient.id,
-        column: 'Novo',
-        position: 0
+        column: 'lead',
+        position: await this.getNextPositionForColumn('lead')
       };
       
       await this.createKanbanEntry(kanbanEntry);
@@ -390,9 +413,9 @@ export class DatabaseStorage implements IStorage {
         .values({ ...proposal, status })
         .returning();
       
-      // Atualiza o Kanban do cliente para "Em andamento" se o cliente tiver uma entrada
+      // Atualiza o Kanban do cliente para "negociacao" se o cliente tiver uma entrada
       if (newProposal.clientId) {
-        await this.updateClientKanbanColumn(newProposal.clientId, 'Em andamento');
+        await this.updateClientKanbanColumn(newProposal.clientId, 'negociacao');
       }
       
       return newProposal;
@@ -411,9 +434,25 @@ export class DatabaseStorage implements IStorage {
         .where(eq(proposals.id, id))
         .returning();
         
-      // Se o status da proposta foi alterado para "Finalizada", atualiza o kanban do cliente
-      if (proposal.status === 'Finalizada' && updatedProposal.clientId) {
-        await this.updateClientKanbanColumn(updatedProposal.clientId, 'Finalizado');
+      // Se o status da proposta foi alterado, atualiza o kanban do cliente
+      if (proposal.status && updatedProposal.clientId) {
+        let kanbanColumn = 'lead';
+        
+        if (proposal.status === 'Nova proposta') {
+          kanbanColumn = 'lead';
+        } else if (proposal.status === 'Em andamento') {
+          kanbanColumn = 'qualificacao';
+        } else if (proposal.status === 'em_negociacao') {
+          kanbanColumn = 'negociacao';
+        } else if (proposal.status === 'em_analise') {
+          kanbanColumn = 'pendente';
+        } else if (proposal.status === 'recusada') {
+          kanbanColumn = 'recusada';
+        } else if (proposal.status === 'aceita' || proposal.status === 'Finalizada') {
+          kanbanColumn = 'finalizada';
+        }
+        
+        await this.updateClientKanbanColumn(updatedProposal.clientId, kanbanColumn);
       }
       
       return updatedProposal;
