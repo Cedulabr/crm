@@ -7,14 +7,21 @@ import {
   Bank,
   Proposal,
   Kanban,
+  User,
+  Organization,
   InsertClient,
   InsertProduct,
   InsertConvenio,
   InsertBank,
   InsertProposal,
   InsertKanban,
+  InsertUser,
+  InsertOrganization,
+  RegisterUser,
   ClientWithKanban,
-  ProposalWithDetails
+  ProposalWithDetails,
+  UserWithOrganization,
+  AuthData
 } from '@shared/schema';
 
 export class SupabaseStorage implements IStorage {
@@ -36,6 +43,8 @@ export class SupabaseStorage implements IStorage {
       contact: client.contact,
       email: client.email,
       company: client.company,
+      createdById: client.created_by_id,
+      organizationId: client.organization_id,
       createdAt: client.created_at ? new Date(client.created_at) : null
     }));
   }
@@ -62,6 +71,8 @@ export class SupabaseStorage implements IStorage {
       contact: data.contact,
       email: data.email,
       company: data.company,
+      createdById: data.created_by_id,
+      organizationId: data.organization_id,
       createdAt: data.created_at ? new Date(data.created_at) : null
     };
   }
@@ -79,6 +90,8 @@ export class SupabaseStorage implements IStorage {
         contact: client.contact,
         email: client.email,
         company: client.company,
+        created_by_id: client.createdById,
+        organization_id: client.organizationId,
         created_at: new Date().toISOString()
       })
       .select()
@@ -97,6 +110,8 @@ export class SupabaseStorage implements IStorage {
       contact: data.contact,
       email: data.email,
       company: data.company,
+      createdById: data.created_by_id,
+      organizationId: data.organization_id,
       createdAt: data.created_at ? new Date(data.created_at) : null
     };
     
@@ -126,7 +141,9 @@ export class SupabaseStorage implements IStorage {
         birth_date: client.birthDate,
         contact: client.contact,
         email: client.email,
-        company: client.company
+        company: client.company,
+        created_by_id: client.createdById ?? existingClient.createdById,
+        organization_id: client.organizationId ?? existingClient.organizationId
       })
       .eq('id', id)
       .select()
@@ -144,6 +161,8 @@ export class SupabaseStorage implements IStorage {
       contact: data.contact,
       email: data.email,
       company: data.company,
+      createdById: data.created_by_id,
+      organizationId: data.organization_id,
       createdAt: data.created_at ? new Date(data.created_at) : null
     };
   }
@@ -382,7 +401,10 @@ export class SupabaseStorage implements IStorage {
       status: proposal.status,
       productId: proposal.product_id,
       convenioId: proposal.convenio_id,
-      bankId: proposal.bank_id
+      bankId: proposal.bank_id,
+      createdById: proposal.created_by_id,
+      organizationId: proposal.organization_id,
+      comments: proposal.comments
     }));
   }
 
@@ -406,7 +428,10 @@ export class SupabaseStorage implements IStorage {
       status: data.status,
       productId: data.product_id,
       convenioId: data.convenio_id,
-      bankId: data.bank_id
+      bankId: data.bank_id,
+      createdById: data.created_by_id,
+      organizationId: data.organization_id,
+      comments: data.comments
     };
   }
 
@@ -420,7 +445,10 @@ export class SupabaseStorage implements IStorage {
         status: proposal.status,
         product_id: proposal.productId,
         convenio_id: proposal.convenioId,
-        bank_id: proposal.bankId
+        bank_id: proposal.bankId,
+        created_by_id: proposal.createdById,
+        organization_id: proposal.organizationId,
+        comments: proposal.comments
       })
       .select()
       .single();
@@ -435,7 +463,10 @@ export class SupabaseStorage implements IStorage {
       status: data.status,
       productId: data.product_id,
       convenioId: data.convenio_id,
-      bankId: data.bank_id
+      bankId: data.bank_id,
+      createdById: data.created_by_id,
+      organizationId: data.organization_id,
+      comments: data.comments
     };
   }
 
@@ -453,7 +484,10 @@ export class SupabaseStorage implements IStorage {
         status: proposal.status,
         product_id: proposal.productId,
         convenio_id: proposal.convenioId,
-        bank_id: proposal.bankId
+        bank_id: proposal.bankId,
+        created_by_id: proposal.createdById ?? existingProposal.createdById,
+        organization_id: proposal.organizationId ?? existingProposal.organizationId,
+        comments: proposal.comments ?? existingProposal.comments
       })
       .eq('id', id)
       .select()
@@ -469,7 +503,10 @@ export class SupabaseStorage implements IStorage {
       status: data.status,
       productId: data.product_id,
       convenioId: data.convenio_id,
-      bankId: data.bank_id
+      bankId: data.bank_id,
+      createdById: data.created_by_id,
+      organizationId: data.organization_id,
+      comments: data.comments
     };
   }
 
@@ -505,7 +542,10 @@ export class SupabaseStorage implements IStorage {
       status: proposal.status,
       productId: proposal.product_id,
       convenioId: proposal.convenio_id,
-      bankId: proposal.bank_id
+      bankId: proposal.bank_id,
+      createdById: proposal.created_by_id,
+      organizationId: proposal.organization_id,
+      comments: proposal.comments
     }));
   }
 
@@ -525,7 +565,10 @@ export class SupabaseStorage implements IStorage {
       status: proposal.status,
       productId: proposal.product_id,
       convenioId: proposal.convenio_id,
-      bankId: proposal.bank_id
+      bankId: proposal.bank_id,
+      createdById: proposal.created_by_id,
+      organizationId: proposal.organization_id,
+      comments: proposal.comments
     }));
   }
 
@@ -551,7 +594,10 @@ export class SupabaseStorage implements IStorage {
       status: proposal.status,
       productId: proposal.product_id,
       convenioId: proposal.convenio_id,
-      bankId: proposal.bank_id
+      bankId: proposal.bank_id,
+      createdById: proposal.created_by_id,
+      organizationId: proposal.organization_id,
+      comments: proposal.comments
     }));
   }
 
@@ -571,7 +617,10 @@ export class SupabaseStorage implements IStorage {
       status: proposal.status,
       productId: proposal.product_id,
       convenioId: proposal.convenio_id,
-      bankId: proposal.bank_id
+      bankId: proposal.bank_id,
+      createdById: proposal.created_by_id,
+      organizationId: proposal.organization_id,
+      comments: proposal.comments
     }));
   }
 
@@ -746,5 +795,411 @@ export class SupabaseStorage implements IStorage {
     
     // Caso contrário, incrementar a maior posição
     return data[0].position + 1;
+  }
+  
+  // Métodos para lidar com clientes por criador e organização
+  async getClientsByCreator(creatorId: number): Promise<Client[]> {
+    const { data, error } = await supabase
+      .from('clients')
+      .select('*')
+      .eq('created_by_id', creatorId);
+    
+    if (error) throw error;
+    
+    return data.map(client => ({
+      id: client.id,
+      name: client.name,
+      cpf: client.cpf,
+      phone: client.phone,
+      convenioId: client.convenio_id,
+      birthDate: client.birth_date,
+      contact: client.contact,
+      email: client.email,
+      company: client.company,
+      createdById: client.created_by_id,
+      organizationId: client.organization_id,
+      createdAt: client.created_at ? new Date(client.created_at) : null
+    }));
+  }
+  
+  async getClientsByOrganization(organizationId: number): Promise<Client[]> {
+    const { data, error } = await supabase
+      .from('clients')
+      .select('*')
+      .eq('organization_id', organizationId);
+    
+    if (error) throw error;
+    
+    return data.map(client => ({
+      id: client.id,
+      name: client.name,
+      cpf: client.cpf,
+      phone: client.phone,
+      convenioId: client.convenio_id,
+      birthDate: client.birth_date,
+      contact: client.contact,
+      email: client.email,
+      company: client.company,
+      createdById: client.created_by_id,
+      organizationId: client.organization_id,
+      createdAt: client.created_at ? new Date(client.created_at) : null
+    }));
+  }
+  
+  // Métodos para lidar com propostas por criador e organização
+  async getProposalsByCreator(creatorId: number): Promise<Proposal[]> {
+    const { data, error } = await supabase
+      .from('proposals')
+      .select('*')
+      .eq('created_by_id', creatorId);
+    
+    if (error) throw error;
+    
+    return data.map(proposal => ({
+      id: proposal.id,
+      value: proposal.value,
+      clientId: proposal.client_id,
+      createdAt: proposal.created_at ? new Date(proposal.created_at) : null,
+      status: proposal.status,
+      productId: proposal.product_id,
+      convenioId: proposal.convenio_id,
+      bankId: proposal.bank_id,
+      createdById: proposal.created_by_id,
+      organizationId: proposal.organization_id,
+      comments: proposal.comments
+    }));
+  }
+  
+  async getProposalsByOrganization(organizationId: number): Promise<Proposal[]> {
+    const { data, error } = await supabase
+      .from('proposals')
+      .select('*')
+      .eq('organization_id', organizationId);
+    
+    if (error) throw error;
+    
+    return data.map(proposal => ({
+      id: proposal.id,
+      value: proposal.value,
+      clientId: proposal.client_id,
+      createdAt: proposal.created_at ? new Date(proposal.created_at) : null,
+      status: proposal.status,
+      productId: proposal.product_id,
+      convenioId: proposal.convenio_id,
+      bankId: proposal.bank_id,
+      createdById: proposal.created_by_id,
+      organizationId: proposal.organization_id,
+      comments: proposal.comments
+    }));
+  }
+  
+  // Métodos para lidar com usuários
+  async getUsers(): Promise<User[]> {
+    const { data, error } = await supabase
+      .from('users')
+      .select('*');
+    
+    if (error) throw error;
+    
+    return data.map(user => ({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      organizationId: user.organization_id,
+      createdAt: user.created_at ? new Date(user.created_at) : null,
+      updatedAt: user.updated_at ? new Date(user.updated_at) : null
+    }));
+  }
+  
+  async getUserById(id: number): Promise<User | undefined> {
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', id)
+      .single();
+    
+    if (error) {
+      if (error.code === 'PGRST116') return undefined;
+      throw error;
+    }
+    
+    return {
+      id: data.id,
+      name: data.name,
+      email: data.email,
+      role: data.role,
+      organizationId: data.organization_id,
+      createdAt: data.created_at ? new Date(data.created_at) : null,
+      updatedAt: data.updated_at ? new Date(data.updated_at) : null
+    };
+  }
+  
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', email)
+      .single();
+    
+    if (error) {
+      if (error.code === 'PGRST116') return undefined;
+      throw error;
+    }
+    
+    return {
+      id: data.id,
+      name: data.name,
+      email: data.email,
+      role: data.role,
+      organizationId: data.organization_id,
+      createdAt: data.created_at ? new Date(data.created_at) : null,
+      updatedAt: data.updated_at ? new Date(data.updated_at) : null
+    };
+  }
+  
+  async createUser(user: RegisterUser): Promise<User> {
+    // Primeiro, criar usuário no supabase auth
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email: user.email,
+      password: user.password,
+      options: {
+        data: {
+          name: user.name,
+          role: user.role,
+          organization_id: user.organizationId || null
+        }
+      }
+    });
+    
+    if (authError) throw authError;
+    
+    // Preparar o objeto de inserção
+    const insertData: any = {
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    
+    // Adicionar organization_id apenas se estiver definido
+    if (user.organizationId !== undefined) {
+      insertData.organization_id = user.organizationId;
+    }
+    
+    // Em seguida, criar o registro na tabela 'users'
+    const { data, error } = await supabase
+      .from('users')
+      .insert(insertData)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    
+    return {
+      id: data.id,
+      name: data.name,
+      email: data.email,
+      role: data.role,
+      organizationId: data.organization_id,
+      createdAt: data.created_at ? new Date(data.created_at) : null,
+      updatedAt: data.updated_at ? new Date(data.updated_at) : null
+    };
+  }
+  
+  async updateUser(id: number, user: Partial<InsertUser>): Promise<User | undefined> {
+    // Verificar se o usuário existe
+    const existingUser = await this.getUserById(id);
+    if (!existingUser) return undefined;
+    
+    // Construir objeto de atualização apenas com campos válidos
+    const updateData: Record<string, any> = {
+      updated_at: new Date().toISOString()
+    };
+    
+    if (user.name) updateData.name = user.name;
+    if (user.email) updateData.email = user.email;
+    if (user.role) updateData.role = user.role;
+    if (user.organizationId !== undefined) updateData.organization_id = user.organizationId;
+    
+    // Atualizar usuário
+    const { data, error } = await supabase
+      .from('users')
+      .update(updateData)
+      .eq('id', id)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    
+    return {
+      id: data.id,
+      name: data.name,
+      email: data.email,
+      role: data.role,
+      organizationId: data.organization_id,
+      createdAt: data.created_at ? new Date(data.created_at) : null,
+      updatedAt: data.updated_at ? new Date(data.updated_at) : null
+    };
+  }
+  
+  async deleteUser(id: number): Promise<boolean> {
+    // Verificar se o usuário existe
+    const user = await this.getUserById(id);
+    if (!user) return false;
+    
+    // Deletar usuário
+    const { error } = await supabase
+      .from('users')
+      .delete()
+      .eq('id', id);
+    
+    if (error) throw error;
+    
+    return true;
+  }
+  
+  async getUsersInOrganization(organizationId: number): Promise<User[]> {
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('organization_id', organizationId);
+    
+    if (error) throw error;
+    
+    return data.map(user => ({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      organizationId: user.organization_id,
+      createdAt: user.created_at ? new Date(user.created_at) : null,
+      updatedAt: user.updated_at ? new Date(user.updated_at) : null
+    }));
+  }
+  
+  async loginUser(email: string, password: string): Promise<AuthData | null> {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
+    
+    if (error) return null;
+    
+    const user = await this.getUserByEmail(email);
+    if (!user) return null;
+    
+    // Buscar organização
+    let organization = undefined;
+    if (user.organizationId) {
+      organization = await this.getOrganizationById(user.organizationId);
+    }
+    
+    return {
+      token: data.session.access_token,
+      user: {
+        ...user,
+        organization
+      }
+    };
+  }
+  
+  async resetPassword(email: string): Promise<boolean> {
+    const { error } = await supabase.auth.resetPasswordForEmail(email);
+    return !error;
+  }
+  
+  // Métodos para lidar com organizações
+  async getOrganizations(): Promise<Organization[]> {
+    const { data, error } = await supabase
+      .from('organizations')
+      .select('*');
+    
+    if (error) throw error;
+    
+    return data.map(org => ({
+      id: org.id,
+      name: org.name,
+      createdAt: org.created_at ? new Date(org.created_at) : null
+    }));
+  }
+  
+  async getOrganizationById(id: number): Promise<Organization | undefined> {
+    const { data, error } = await supabase
+      .from('organizations')
+      .select('*')
+      .eq('id', id)
+      .single();
+    
+    if (error) {
+      if (error.code === 'PGRST116') return undefined;
+      throw error;
+    }
+    
+    return {
+      id: data.id,
+      name: data.name,
+      createdAt: data.created_at ? new Date(data.created_at) : null
+    };
+  }
+  
+  async createOrganization(organization: InsertOrganization): Promise<Organization> {
+    const { data, error } = await supabase
+      .from('organizations')
+      .insert({
+        name: organization.name,
+        created_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+    
+    if (error) throw error;
+    
+    return {
+      id: data.id,
+      name: data.name,
+      createdAt: data.created_at ? new Date(data.created_at) : null
+    };
+  }
+  
+  async updateOrganization(id: number, organization: Partial<InsertOrganization>): Promise<Organization | undefined> {
+    // Verificar se existe
+    const existingOrg = await this.getOrganizationById(id);
+    if (!existingOrg) return undefined;
+    
+    // Atualizar
+    const { data, error } = await supabase
+      .from('organizations')
+      .update({
+        name: organization.name
+      })
+      .eq('id', id)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    
+    return {
+      id: data.id,
+      name: data.name,
+      createdAt: data.created_at ? new Date(data.created_at) : null
+    };
+  }
+  
+  async deleteOrganization(id: number): Promise<boolean> {
+    // Verificar se existe
+    const org = await this.getOrganizationById(id);
+    if (!org) return false;
+    
+    // Deletar
+    const { error } = await supabase
+      .from('organizations')
+      .delete()
+      .eq('id', id);
+    
+    if (error) throw error;
+    
+    return true;
   }
 }
