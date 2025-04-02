@@ -17,12 +17,12 @@ const proposalFormSchema = insertProposalSchema
   .omit({ createdAt: true, clientId: true })
   .extend({
     clientName: z.string().min(3, { message: "Nome do cliente é obrigatório" }),
-    clientCpf: z.string().optional(),
+    clientCpf: z.string().min(11, { message: "CPF do cliente é obrigatório" }),
     clientPhone: z.string().optional(),
-    productId: z.string().optional(),
-    convenioId: z.string().optional(),
-    bankId: z.string().optional(),
-    value: z.string(),
+    productId: z.string().min(1, { message: "Produto é obrigatório" }),
+    convenioId: z.string().min(1, { message: "Convênio é obrigatório" }),
+    bankId: z.string().min(1, { message: "Banco é obrigatório" }),
+    value: z.string().min(1, { message: "Valor é obrigatório" }),
     status: z.string(),
   });
 
@@ -183,7 +183,7 @@ export default function ProposalForm({ proposal, onClose }: ProposalFormProps) {
           name="clientName"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Nome do Cliente</FormLabel>
+              <FormLabel>Nome do Cliente *</FormLabel>
               <FormControl>
                 <Input placeholder="Nome completo do cliente" {...field} />
               </FormControl>
@@ -217,7 +217,7 @@ export default function ProposalForm({ proposal, onClose }: ProposalFormProps) {
             
             return (
               <FormItem>
-                <FormLabel>CPF do Cliente</FormLabel>
+                <FormLabel>CPF do Cliente *</FormLabel>
                 <FormControl>
                   <Input 
                     placeholder="000.000.000-00" 
@@ -279,7 +279,7 @@ export default function ProposalForm({ proposal, onClose }: ProposalFormProps) {
           name="productId"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Produto</FormLabel>
+              <FormLabel>Produto *</FormLabel>
               <Select 
                 onValueChange={field.onChange} 
                 defaultValue={field.value}
@@ -307,7 +307,7 @@ export default function ProposalForm({ proposal, onClose }: ProposalFormProps) {
           name="convenioId"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Convênio</FormLabel>
+              <FormLabel>Convênio *</FormLabel>
               <Select 
                 onValueChange={field.onChange} 
                 defaultValue={field.value}
@@ -335,7 +335,7 @@ export default function ProposalForm({ proposal, onClose }: ProposalFormProps) {
           name="bankId"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Banco</FormLabel>
+              <FormLabel>Banco *</FormLabel>
               <Select 
                 onValueChange={field.onChange} 
                 defaultValue={field.value}
@@ -382,7 +382,7 @@ export default function ProposalForm({ proposal, onClose }: ProposalFormProps) {
             
             return (
               <FormItem>
-                <FormLabel>Valor</FormLabel>
+                <FormLabel>Valor *</FormLabel>
                 <FormControl>
                   <Input
                     placeholder="R$ 0,00"
