@@ -9,9 +9,8 @@ import { insertClientSchema, insertProposalSchema, insertKanbanSchema } from "@s
 import { storage as memStorage } from "./storage";
 import { check_env } from "./check-env";
 
-// Determine qual armazenamento usar
-const useSupabase = check_env("SUPABASE_URL") && check_env("SUPABASE_KEY");
-const storage = useSupabase ? new SupabaseStorage() : memStorage;
+// Vamos usar o MemStorage para este projeto
+const storage = memStorage;
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // =================
