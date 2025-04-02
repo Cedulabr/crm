@@ -685,8 +685,8 @@ import { supabaseStorage } from './storage-supabase';
 // Escolhendo qual armazenamento usar
 // Utilize comentários para escolher entre PostgreSQL ou Supabase
 
-// Utilizando PostgreSQL local (comentado para usar Supabase)
-// export const storage = databaseStorage;
+// Utilizando PostgreSQL local
+export const storage = databaseStorage;
 
-// Utilizando Supabase (tabelas criadas)
-export const storage = supabaseStorage;
+// Utilizando Supabase (comentado para usar PostgreSQL local)
+// export const storage = supabaseStorage;

@@ -1,222 +1,60 @@
 import { supabase } from './supabase';
-import fs from 'fs';
-import path from 'path';
 
-async function executarScriptSQL() {
-  console.log('Iniciando criação de tabelas no Supabase...');
+/**
+ * Função para inserir dados de teste diretamente no Supabase
+ * Com os dados básicos para o funcionamento do sistema (empresa, usuário admin e tabelas de referência)
+ */
+async function inserirDadosDeTeste() {
+  console.log('Iniciando inserção de dados de teste no Supabase...');
   
   try {
-    // Ler o arquivo SQL
-    const scriptPath = path.join(__dirname, '..', 'scripts', 'create_supabase_tables.sql');
-    const sqlScript = fs.readFileSync(scriptPath, 'utf8');
-    
-    // Executar o script SQL
-    const { error } = await supabase.rpc('exec_sql', { sql_commands: sqlScript });
-    
-    if (error) {
-      console.error('Erro ao executar o script SQL:', error);
-      return false;
-    }
-    
-    console.log('Tabelas criadas com sucesso no Supabase!');
-    return true;
-  } catch (error) {
-    console.error('Erro ao criar tabelas no Supabase:', error);
-    return false;
-  }
-}
-
-// Criar tabelas individualmente, caso o método acima falhe
-async function criarTabelas() {
-  console.log('Iniciando criação de tabelas individuais no Supabase...');
-  
-  try {
-    // 1. Criar tabela organizations
-    console.log('Criando tabela organizations...');
-    const { error: errorOrgs } = await supabase.query(`
-      CREATE TABLE IF NOT EXISTS public.organizations (
-        id SERIAL PRIMARY KEY,
-        name TEXT NOT NULL,
-        address TEXT,
-        phone TEXT,
-        cnpj TEXT,
-        email TEXT,
-        website TEXT,
-        description TEXT,
-        logo TEXT,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-      );
-    `);
-    
-    if (errorOrgs) {
-      console.error('Erro ao criar tabela organizations:', errorOrgs);
-      return false;
-    }
-    
-    // 2. Criar tabela users
-    console.log('Criando tabela users...');
-    const { error: errorUsers } = await supabase.query(`
-      CREATE TABLE IF NOT EXISTS public.users (
-        id SERIAL PRIMARY KEY,
-        name TEXT NOT NULL,
-        email TEXT NOT NULL UNIQUE,
-        role TEXT NOT NULL DEFAULT 'agent',
-        sector TEXT,
-        organization_id INTEGER REFERENCES public.organizations(id),
-        password TEXT,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-      );
-    `);
-    
-    if (errorUsers) {
-      console.error('Erro ao criar tabela users:', errorUsers);
-      return false;
-    }
-    
-    // 3. Criar tabela convenios
-    console.log('Criando tabela convenios...');
-    const { error: errorConvenios } = await supabase.query(`
-      CREATE TABLE IF NOT EXISTS public.convenios (
-        id SERIAL PRIMARY KEY,
-        name TEXT NOT NULL,
-        price TEXT
-      );
-    `);
-    
-    if (errorConvenios) {
-      console.error('Erro ao criar tabela convenios:', errorConvenios);
-      return false;
-    }
-    
-    // 4. Criar tabela products
-    console.log('Criando tabela products...');
-    const { error: errorProducts } = await supabase.query(`
-      CREATE TABLE IF NOT EXISTS public.products (
-        id SERIAL PRIMARY KEY,
-        name TEXT NOT NULL,
-        price TEXT
-      );
-    `);
-    
-    if (errorProducts) {
-      console.error('Erro ao criar tabela products:', errorProducts);
-      return false;
-    }
-    
-    // 5. Criar tabela banks
-    console.log('Criando tabela banks...');
-    const { error: errorBanks } = await supabase.query(`
-      CREATE TABLE IF NOT EXISTS public.banks (
-        id SERIAL PRIMARY KEY,
-        name TEXT NOT NULL,
-        price TEXT
-      );
-    `);
-    
-    if (errorBanks) {
-      console.error('Erro ao criar tabela banks:', errorBanks);
-      return false;
-    }
-    
-    // 6. Criar tabela clients
-    console.log('Criando tabela clients...');
-    const { error: errorClients } = await supabase.query(`
-      CREATE TABLE IF NOT EXISTS public.clients (
-        id SERIAL PRIMARY KEY,
-        name TEXT NOT NULL,
-        cpf TEXT,
-        phone TEXT,
-        convenio_id INTEGER REFERENCES public.convenios(id),
-        birth_date TEXT,
-        contact TEXT,
-        email TEXT,
-        company TEXT,
-        created_by_id INTEGER REFERENCES public.users(id),
-        organization_id INTEGER REFERENCES public.organizations(id),
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-      );
-    `);
-    
-    if (errorClients) {
-      console.error('Erro ao criar tabela clients:', errorClients);
-      return false;
-    }
-    
-    // 7. Criar tabela proposals
-    console.log('Criando tabela proposals...');
-    const { error: errorProposals } = await supabase.query(`
-      CREATE TABLE IF NOT EXISTS public.proposals (
-        id SERIAL PRIMARY KEY,
-        client_id INTEGER REFERENCES public.clients(id),
-        product_id INTEGER REFERENCES public.products(id),
-        convenio_id INTEGER REFERENCES public.convenios(id),
-        bank_id INTEGER REFERENCES public.banks(id),
-        value TEXT,
-        comments TEXT,
-        status TEXT NOT NULL,
-        created_by_id INTEGER REFERENCES public.users(id),
-        organization_id INTEGER REFERENCES public.organizations(id),
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-      );
-    `);
-    
-    if (errorProposals) {
-      console.error('Erro ao criar tabela proposals:', errorProposals);
-      return false;
-    }
-    
-    // 8. Criar tabela kanban
-    console.log('Criando tabela kanban...');
-    const { error: errorKanban } = await supabase.query(`
-      CREATE TABLE IF NOT EXISTS public.kanban (
-        id SERIAL PRIMARY KEY,
-        client_id INTEGER REFERENCES public.clients(id),
-        column TEXT NOT NULL,
-        position INTEGER NOT NULL
-      );
-    `);
-    
-    if (errorKanban) {
-      console.error('Erro ao criar tabela kanban:', errorKanban);
-      return false;
-    }
-    
-    // Inserir dados iniciais
-    console.log('Inserindo dados iniciais...');
-    
-    // Inserir organização padrão
-    const { error: errorInsertOrg } = await supabase
+    console.log('Inserindo organização de teste...');
+    const { data: orgData, error: orgError } = await supabase
       .from('organizations')
       .insert({
-        name: 'Empresa Padrão',
+        name: 'Empresa Teste',
         address: 'Av. Principal, 1000',
-        phone: '(71) 99999-9999',
+        phone: '(71)99999-9999',
+        cnpj: '12.345.678/0001-90',
         email: 'contato@empresa.com',
-        description: 'Organização padrão do sistema'
-      });
+        website: 'www.empresa.com',
+        description: 'Empresa de testes do sistema'
+      })
+      .select()
+      .single();
     
-    if (errorInsertOrg) {
-      console.error('Erro ao inserir organização padrão:', errorInsertOrg);
+    if (orgError) {
+      console.error('Erro ao inserir organização de teste:', orgError);
+      return false;
     }
     
-    // Inserir usuário admin padrão
-    const { error: errorInsertUser } = await supabase
+    console.log('Organização criada com sucesso:', orgData);
+    
+    // Inserir usuário admin
+    console.log('Inserindo usuário admin...');
+    const { data: userData, error: userError } = await supabase
       .from('users')
       .insert({
         name: 'Administrador',
         email: 'admin@empresa.com',
         role: 'superadmin',
-        organization_id: 1,
-        password: 'f7fed5c7c97ac4f1c65ca9a9c4ea17d0ca05e2cca40d27bc88cd1ab82c64d47b.a0dbbe07cf3ffc1c62b7d49d43bc98d9'
-      });
+        organization_id: orgData.id,
+        password: 'senha123', // Na produção usar senha criptografada
+        sector: 'Administração'
+      })
+      .select()
+      .single();
     
-    if (errorInsertUser) {
-      console.error('Erro ao inserir usuário admin padrão:', errorInsertUser);
+    if (userError) {
+      console.error('Erro ao inserir usuário admin:', userError);
+      return false;
     }
     
-    // Inserir produtos padrão
-    const { error: errorInsertProducts } = await supabase
+    console.log('Usuário admin criado com sucesso:', userData);
+    
+    // Inserir produtos
+    console.log('Inserindo produtos...');
+    const { error: productsError } = await supabase
       .from('products')
       .insert([
         { name: 'Novo empréstimo', price: 'R$ 1.000,00' },
@@ -226,12 +64,16 @@ async function criarTabelas() {
         { name: 'Saque FGTS', price: 'R$ 1.200,00' }
       ]);
     
-    if (errorInsertProducts) {
-      console.error('Erro ao inserir produtos padrão:', errorInsertProducts);
+    if (productsError) {
+      console.error('Erro ao inserir produtos:', productsError);
+      return false;
     }
     
-    // Inserir convênios padrão
-    const { error: errorInsertConvenios } = await supabase
+    console.log('Produtos inseridos com sucesso');
+    
+    // Inserir convênios
+    console.log('Inserindo convênios...');
+    const { error: conveniosError } = await supabase
       .from('convenios')
       .insert([
         { name: 'Beneficiário do INSS', price: 'R$ 3.000,00' },
@@ -240,12 +82,16 @@ async function criarTabelas() {
         { name: 'Carteira assinada CLT', price: 'R$ 4.000,00' }
       ]);
     
-    if (errorInsertConvenios) {
-      console.error('Erro ao inserir convênios padrão:', errorInsertConvenios);
+    if (conveniosError) {
+      console.error('Erro ao inserir convênios:', conveniosError);
+      return false;
     }
     
-    // Inserir bancos padrão
-    const { error: errorInsertBanks } = await supabase
+    console.log('Convênios inseridos com sucesso');
+    
+    // Inserir bancos
+    console.log('Inserindo bancos...');
+    const { error: banksError } = await supabase
       .from('banks')
       .insert([
         { name: 'BANRISUL', price: 'R$ 2.500,00' },
@@ -256,66 +102,101 @@ async function criarTabelas() {
         { name: 'SAFRA', price: 'R$ 2.800,00' }
       ]);
     
-    if (errorInsertBanks) {
-      console.error('Erro ao inserir bancos padrão:', errorInsertBanks);
+    if (banksError) {
+      console.error('Erro ao inserir bancos:', banksError);
+      return false;
     }
     
-    console.log('Tabelas e dados iniciais criados com sucesso no Supabase!');
+    console.log('Bancos inseridos com sucesso');
+    
+    // Inserir cliente de teste
+    console.log('Inserindo cliente de teste...');
+    const { data: clientData, error: clientError } = await supabase
+      .from('clients')
+      .insert({
+        name: 'Cliente Teste',
+        cpf: '123.456.789-00',
+        phone: '(71)98765-4321',
+        birth_date: '1980-01-01',
+        contact: 'Contato do cliente',
+        email: 'cliente@teste.com',
+        company: 'Empresa do cliente',
+        organization_id: orgData.id,
+        created_by_id: userData.id,
+        convenio_id: 1
+      })
+      .select()
+      .single();
+    
+    if (clientError) {
+      console.error('Erro ao inserir cliente de teste:', clientError);
+      return false;
+    }
+    
+    console.log('Cliente inserido com sucesso:', clientData);
+    
+    // Inserir proposta de teste
+    console.log('Inserindo proposta de teste...');
+    const { data: proposalData, error: proposalError } = await supabase
+      .from('proposals')
+      .insert({
+        client_id: clientData.id,
+        product_id: 1,
+        convenio_id: 1,
+        bank_id: 2,
+        value: 'R$ 10.000,00',
+        comments: 'Proposta de teste',
+        status: 'Em análise',
+        created_by_id: userData.id,
+        organization_id: orgData.id
+      })
+      .select()
+      .single();
+    
+    if (proposalError) {
+      console.error('Erro ao inserir proposta de teste:', proposalError);
+      return false;
+    }
+    
+    console.log('Proposta inserida com sucesso:', proposalData);
+    
+    // Inserir entrada de kanban para o cliente
+    console.log('Inserindo entrada de kanban para o cliente...');
+    const { data: kanbanData, error: kanbanError } = await supabase
+      .from('kanban')
+      .insert({
+        client_id: clientData.id,
+        column: 'Prospecção',
+        position: 1
+      })
+      .select()
+      .single();
+    
+    if (kanbanError) {
+      console.error('Erro ao inserir entrada de kanban:', kanbanError);
+      return false;
+    }
+    
+    console.log('Entrada de kanban inserida com sucesso:', kanbanData);
+    
+    console.log('Todos os dados de teste foram inseridos com sucesso!');
     return true;
-  } catch (error) {
-    console.error('Erro ao criar tabelas no Supabase:', error);
-    return false;
-  }
-}
-
-// Função para iniciar o processo de criação de tabelas
-export async function iniciarCriacaoTabelas() {
-  console.log('Verificando se tabelas já existem no Supabase...');
-  
-  try {
-    // Verificar se a tabela organizations já existe
-    const { data, error } = await supabase
-      .from('organizations')
-      .select('count')
-      .limit(1);
     
-    if (error) {
-      if (error.code === '42P01') { // Tabela não existe
-        console.log('Tabelas não existem. Iniciando criação...');
-        
-        // Tentar executar o script SQL completo
-        const resultadoScript = await executarScriptSQL();
-        
-        // Se falhar, tentar criar tabelas individualmente
-        if (!resultadoScript) {
-          console.log('Tentando criar tabelas individualmente...');
-          return await criarTabelas();
-        }
-        
-        return resultadoScript;
-      } else {
-        console.error('Erro ao verificar tabelas no Supabase:', error);
-        return false;
-      }
-    } else {
-      console.log('Tabelas já existem no Supabase.');
-      return true;
-    }
   } catch (error) {
-    console.error('Erro ao verificar tabelas no Supabase:', error);
+    console.error('Erro ao inserir dados de teste:', error);
     return false;
   }
 }
 
-// Executar a verificação e criação das tabelas
-iniciarCriacaoTabelas()
+// Executar a inserção de dados de teste
+inserirDadosDeTeste()
   .then(resultado => {
     if (resultado) {
-      console.log('Processo de criação de tabelas concluído com sucesso!');
+      console.log('Processo de inserção de dados de teste concluído com sucesso!');
     } else {
-      console.error('Houve erros no processo de criação de tabelas.');
+      console.error('Houve erros no processo de inserção de dados de teste.');
     }
   })
   .catch(error => {
-    console.error('Erro durante o processo de criação de tabelas:', error);
+    console.error('Erro durante o processo de inserção de dados de teste:', error);
   });
