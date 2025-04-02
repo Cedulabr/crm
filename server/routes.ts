@@ -194,8 +194,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/proposals', async (req, res) => {
     try {
-      const proposalData = insertProposalSchema.parse(req.body);
-      const proposal = await storage.createProposal(proposalData);
+      // Se tiver os campos novos clientName e clientCpf, precisamos tratar especialmente
+      const { clientName, clientCpf, ...proposalData } = req.body;
+      
+      // Validar os dados da proposta
+      const validProposalData = insertProposalSchema.parse(proposalData);
+      
+      // Criar uma proposta com os dados validados
+      const proposal = await storage.createProposal(validProposalData);
+      
       res.status(201).json(proposal);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -208,8 +215,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put('/api/proposals/:id', async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const proposalData = insertProposalSchema.partial().parse(req.body);
-      const updatedProposal = await storage.updateProposal(id, proposalData);
+      
+      // Separar os campos de cliente adicionais
+      const { clientName, clientCpf, ...proposalData } = req.body;
+      
+      const validProposalData = insertProposalSchema.partial().parse(proposalData);
+      const updatedProposal = await storage.updateProposal(id, validProposalData);
       
       if (!updatedProposal) {
         return res.status(404).json({ message: 'Proposal not found' });

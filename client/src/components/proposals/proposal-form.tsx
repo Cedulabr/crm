@@ -12,18 +12,16 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 
-// Extended schema with numeric value validation
+// Extended schema with numeric value validation and client info
 const proposalFormSchema = insertProposalSchema
-  .omit({ createdAt: true })
+  .omit({ createdAt: true, clientId: true })
   .extend({
-    clientId: z.string().optional(),
+    clientName: z.string().min(3, { message: "Nome do cliente é obrigatório" }),
+    clientCpf: z.string().optional(),
     productId: z.string().optional(),
     convenioId: z.string().optional(),
     bankId: z.string().optional(),
-    value: z.string().refine(
-      (val) => !isNaN(Number(val)) && Number(val) > 0,
-      { message: "Valor deve ser um número maior que zero" }
-    ),
+    value: z.string(),
     status: z.string(),
   });
 
@@ -60,11 +58,14 @@ export default function ProposalForm({ proposal, onClose }: ProposalFormProps) {
 
   // Define default values based on whether we're editing or creating
   const defaultValues: Partial<ProposalFormData> = {
-    clientId: proposal?.clientId?.toString() || "",
+    clientName: proposal?.client?.name || "",
+    clientCpf: proposal?.client?.cpf || "",
     productId: proposal?.productId?.toString() || "",
     convenioId: proposal?.convenioId?.toString() || "",
     bankId: proposal?.bankId?.toString() || "",
-    value: proposal?.value?.toString() || "",
+    value: proposal?.value ? 
+      new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(proposal.value)) 
+      : "",
     status: proposal?.status || "em_negociacao",
   };
 
@@ -77,13 +78,18 @@ export default function ProposalForm({ proposal, onClose }: ProposalFormProps) {
   // Create proposal mutation
   const createProposalMutation = useMutation({
     mutationFn: async (data: ProposalFormData) => {
+      // Processar o valor removendo formatação de moeda
+      const rawValue = data.value.replace(/[^\d,]/g, '').replace(',', '.');
+      
       // Convert string IDs to numbers
       const formattedData = {
-        ...data,
-        clientId: data.clientId ? parseInt(data.clientId) : undefined,
+        clientName: data.clientName,
+        clientCpf: data.clientCpf,
         productId: data.productId ? parseInt(data.productId) : undefined,
         convenioId: data.convenioId ? parseInt(data.convenioId) : undefined,
         bankId: data.bankId ? parseInt(data.bankId) : undefined,
+        value: rawValue,
+        status: data.status
       };
       return apiRequest('POST', '/api/proposals', formattedData);
     },
@@ -112,13 +118,18 @@ export default function ProposalForm({ proposal, onClose }: ProposalFormProps) {
   // Update proposal mutation
   const updateProposalMutation = useMutation({
     mutationFn: async (data: { id: number; formData: ProposalFormData }) => {
+      // Processar o valor removendo formatação de moeda
+      const rawValue = data.formData.value.replace(/[^\d,]/g, '').replace(',', '.');
+      
       // Convert string IDs to numbers
       const formattedData = {
-        ...data.formData,
-        clientId: data.formData.clientId ? parseInt(data.formData.clientId) : undefined,
+        clientName: data.formData.clientName,
+        clientCpf: data.formData.clientCpf,
         productId: data.formData.productId ? parseInt(data.formData.productId) : undefined,
         convenioId: data.formData.convenioId ? parseInt(data.formData.convenioId) : undefined,
         bankId: data.formData.bankId ? parseInt(data.formData.bankId) : undefined,
+        value: rawValue,
+        status: data.formData.status
       };
       return apiRequest('PUT', `/api/proposals/${data.id}`, formattedData);
     },
@@ -165,27 +176,27 @@ export default function ProposalForm({ proposal, onClose }: ProposalFormProps) {
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 mt-4">
         <FormField
           control={form.control}
-          name="clientId"
+          name="clientName"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Cliente</FormLabel>
-              <Select 
-                onValueChange={field.onChange} 
-                defaultValue={field.value}
-              >
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o cliente" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {Array.isArray(clients) && clients.map((client: any) => (
-                    <SelectItem key={client.id} value={client.id.toString()}>
-                      {client.name} {client.cpf ? `- CPF: ${client.cpf}` : ''}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <FormLabel>Nome do Cliente</FormLabel>
+              <FormControl>
+                <Input placeholder="Nome completo do cliente" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        
+        <FormField
+          control={form.control}
+          name="clientCpf"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>CPF do Cliente</FormLabel>
+              <FormControl>
+                <Input placeholder="000.000.000-00" {...field} />
+              </FormControl>
               <FormMessage />
             </FormItem>
           )}
@@ -278,15 +289,48 @@ export default function ProposalForm({ proposal, onClose }: ProposalFormProps) {
         <FormField
           control={form.control}
           name="value"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Valor</FormLabel>
-              <FormControl>
-                <Input placeholder="R$ 0,00" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
+          render={({ field }) => {
+            const formatCurrency = (value: string) => {
+              // Remove todos os caracteres não numéricos
+              const onlyNums = value.replace(/[^\d]/g, '');
+              
+              if (onlyNums === '') return '';
+              
+              // Converte para número e divide por 100 para considerar centavos
+              const amount = parseInt(onlyNums, 10) / 100;
+              
+              // Formata como moeda brasileira
+              return new Intl.NumberFormat('pt-BR', {
+                style: 'currency',
+                currency: 'BRL',
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+              }).format(amount);
+            };
+            
+            return (
+              <FormItem>
+                <FormLabel>Valor</FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="R$ 0,00"
+                    value={field.value}
+                    onChange={(e) => {
+                      const rawValue = e.target.value;
+                      // Só formata se tiver algum valor
+                      if (rawValue) {
+                        const formatted = formatCurrency(rawValue);
+                        field.onChange(formatted);
+                      } else {
+                        field.onChange('');
+                      }
+                    }}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            );
+          }}
         />
         
         <FormField
