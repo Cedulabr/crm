@@ -229,6 +229,10 @@ export class MemStorage implements IStorage {
     for (const client of clients) {
       const kanban = await this.getKanbanEntryByClient(client.id);
       const proposals = await this.getProposalsByClient(client.id);
+      
+      // Mostrar apenas clientes com propostas cadastradas
+      if (proposals.length === 0) continue;
+      
       const totalValue = proposals.reduce((sum, proposal) => {
         return sum + (Number(proposal.value) || 0);
       }, 0);

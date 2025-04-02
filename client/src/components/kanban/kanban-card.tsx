@@ -59,8 +59,8 @@ export default function KanbanCard({ client, columnId, onEdit }: KanbanCardProps
       <CardContent className="p-0">
         <div className="flex justify-between items-start mb-3">
           <div>
-            <h4 className="font-medium text-neutral-500">{client.company || 'Empresa não informada'}</h4>
-            <p className="text-xs text-neutral-400">{client.name}</p>
+            <h4 className="font-medium text-neutral-500">{client.name}</h4>
+            {client.phone && <p className="text-xs text-neutral-400">{client.phone}</p>}
           </div>
           <div className="flex space-x-1">
             <Button 

@@ -362,6 +362,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: 'Kanban entry not found for client' });
       }
       
+      // Atualizar todas as propostas do cliente para ter o mesmo status
+      const proposals = await storage.getProposalsByClient(clientId);
+      let status = '';
+      
+      // Mapear coluna do Kanban para status da proposta
+      if (column === 'lead') {
+        status = 'lead';
+      } else if (column === 'qualificacao') {
+        status = 'qualificacao';
+      } else if (column === 'negociacao') {
+        status = 'em_negociacao';
+      } else if (column === 'fechamento') {
+        status = 'aceita';
+      }
+      
+      // Atualizar o status de todas as propostas do cliente
+      if (status) {
+        for (const proposal of proposals) {
+          await storage.updateProposal(proposal.id, { status });
+        }
+      }
+      
       res.json(updatedEntry);
     } catch (error) {
       res.status(500).json({ message: 'Error updating kanban column' });

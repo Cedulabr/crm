@@ -51,6 +51,7 @@ export default function Kanban() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/clients-with-kanban'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/proposals-with-details'] });
       toast({
         title: "Cliente movido",
         description: "O cliente foi movido com sucesso para outra coluna."
