@@ -14,13 +14,22 @@ if (!supabaseUrl || !supabaseKey) {
 console.log('Criando cliente Supabase...');
 export const supabase = createClient<Database>(supabaseUrl, supabaseKey);
 
-// Validar conexão com uma consulta simples
-supabase.from('users').select('count').then(({ data, error }) => {
-  if (error) {
-    console.error('Erro ao validar conexão com Supabase:', error);
-  } else {
-    console.log('Conexão com Supabase validada com sucesso!');
+// Função para validar a conexão com o Supabase
+export async function validarConexaoSupabase() {
+  try {
+    const { data, error } = await supabase.from('users').select('count');
+    if (error) {
+      console.error('Erro ao validar conexão com Supabase:', error);
+      return false;
+    } else {
+      console.log('Conexão com Supabase validada com sucesso!');
+      return true;
+    }
+  } catch (error) {
+    console.error('Erro ao tentar validar conexão com Supabase:', error);
+    return false;
   }
-}).catch(error => {
-  console.error('Erro ao tentar validar conexão com Supabase:', error);
-});
+}
+
+// Iniciar validação
+validarConexaoSupabase();
