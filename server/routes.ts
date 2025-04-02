@@ -591,6 +591,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: 'Error resetting password' });
     }
   });
+  
+  // Rota de login
+  app.post('/api/login', async (req, res) => {
+    try {
+      const { email, password } = req.body;
+      
+      if (!email || !password) {
+        return res.status(400).json({ message: 'Email and password are required' });
+      }
+      
+      const authData = await storage.loginUser(email, password);
+      
+      if (!authData) {
+        return res.status(401).json({ message: 'Invalid credentials' });
+      }
+      
+      res.json(authData);
+    } catch (error) {
+      console.error('Erro no login:', error);
+      res.status(500).json({ message: 'Error during login' });
+    }
+  });
 
   const httpServer = createServer(app);
   return httpServer;

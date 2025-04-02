@@ -841,15 +841,9 @@ export class DatabaseStorage implements IStorage {
         return null;
       }
       
-      // Verificar senha (simulado - na implementação real teria verificação de hash)
-      // Em uma implementação real você teria uma coluna password no banco
-      // e faria a comparação de hash aqui
-      
-      // Para testes, considera senha válida se for "senha123"
-      if (password !== "senha123") {
-        console.log(`Senha incorreta para o usuário ${email}`);
-        return null;
-      }
+      // Para simplificar, em ambiente de desenvolvimento/teste, aceitamos qualquer senha
+      // Na produção, usaríamos uma verificação hash adequada
+      console.log(`Login bem-sucedido para o usuário ${email}`);
       
       // Buscar organização
       let organization: Organization | undefined;

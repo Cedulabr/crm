@@ -35,40 +35,24 @@ export default function LoginPage() {
   async function onSubmit(values: LoginFormValues) {
     setIsLoggingIn(true);
     try {
-      // Simulação de login (em um sistema real, isso seria uma chamada para a API)
-      // Verificamos o e-mail e senha para determinar o tipo de usuário
-      let userData = null;
+      // Chamar API de login
+      const response = await fetch('/api/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: values.email,
+          password: values.password
+        })
+      });
       
-      if (values.email === "admin@empresa.com" && values.password === "senha123") {
-        userData = {
-          id: 1,
-          name: "Administrador",
-          email: values.email,
-          role: "superadmin",
-          token: "admin-token-123"
-        };
-      } else if (values.email === "gestor@empresa.com" && values.password === "senha123") {
-        userData = {
-          id: 2,
-          name: "Gestor da Empresa",
-          email: values.email,
-          role: "manager",
-          token: "manager-token-123"
-        };
-      } else if (values.email === "agente@empresa.com" && values.password === "senha123") {
-        userData = {
-          id: 3,
-          name: "Agente de Vendas",
-          email: values.email,
-          role: "agent",
-          token: "agent-token-123"
-        };
-      }
-      
-      if (userData) {
+      if (response.ok) {
+        const authData = await response.json();
+        
         // Salvar token e dados do usuário no localStorage
-        localStorage.setItem("token", userData.token);
-        localStorage.setItem("user", JSON.stringify(userData));
+        localStorage.setItem("token", authData.token);
+        localStorage.setItem("user", JSON.stringify(authData.user));
         
         // Invalidar queries existentes para recarregar dados com o novo token
         await queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
@@ -76,15 +60,17 @@ export default function LoginPage() {
         
         toast({
           title: "Login realizado com sucesso",
-          description: `Bem-vindo, ${userData.name}!`,
+          description: `Bem-vindo, ${authData.user.name}!`,
         });
         
         // Redirecionar para a dashboard
         setLocation("/dashboard");
       } else {
+        // Tratar erro de login
+        const errorData = await response.json();
         toast({
           title: "Erro de autenticação",
-          description: "E-mail ou senha incorretos",
+          description: errorData.message || "E-mail ou senha incorretos",
           variant: "destructive"
         });
       }
