@@ -17,7 +17,7 @@ const clientFormSchema = insertClientSchema.extend({
   name: z.string().min(3, "Nome precisa ter pelo menos 3 caracteres").nonempty("Nome é obrigatório"),
   phone: z.string().nonempty("Telefone é obrigatório"),
   cpf: z.string().nonempty("CPF é obrigatório"),
-  convenioId: z.string().nonempty("Convênio é obrigatório"),
+  convenioId: z.coerce.number().int("Convênio é obrigatório"),
   birthDate: z.string().optional(),
 });
 
