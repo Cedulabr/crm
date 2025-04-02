@@ -12,13 +12,10 @@ import {
   insertOrganizationSchema
 } from "@shared/schema";
 
-// Verifique se estamos usando o Supabase ou MemStorage com base nas variáveis de ambiente
-// Se SUPABASE_URL e SUPABASE_KEY estiverem definidos, use o SupabaseStorage
-import { storage as memStorage } from "./storage";
+// Importar o storage configurado no arquivo storage.ts
+// Este projeto usa DatabaseStorage para persistência dos dados no PostgreSQL
+import { storage } from "./storage";
 import { check_env } from "./check-env";
-
-// Vamos usar o MemStorage para este projeto
-const storage = memStorage;
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // =================
