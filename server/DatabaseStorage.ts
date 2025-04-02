@@ -62,7 +62,7 @@ export class DatabaseStorage implements IStorage {
           { name: 'Novo empréstimo', price: 'R$ 0,00' },
           { name: 'Refinanciamento', price: 'R$ 0,00' },
           { name: 'Portabilidade', price: 'R$ 0,00' },
-          { name: 'Cartão', price: 'R$ 0,00' },
+          { name: 'Cartão de Crédito', price: 'R$ 0,00' },
           { name: 'Saque FGTS', price: 'R$ 0,00' }
         ];
         
@@ -90,11 +90,42 @@ export class DatabaseStorage implements IStorage {
       if (existingBanks.length === 0) {
         console.log('Inicializando bancos padrão...');
         const defaultBanks = [
-          { name: 'Banco do Brasil', price: 'R$ 0,00' },
-          { name: 'Caixa Econômica Federal', price: 'R$ 0,00' },
-          { name: 'Itaú', price: 'R$ 0,00' },
-          { name: 'Bradesco', price: 'R$ 0,00' },
-          { name: 'Santander', price: 'R$ 0,00' }
+          { name: 'BANRISUL', price: 'R$ 0,00' },
+          { name: 'BMG', price: 'R$ 0,00' },
+          { name: 'C6 BANK', price: 'R$ 0,00' },
+          { name: 'CAIXA ECONÔMICA FEDERAL', price: 'R$ 0,00' },
+          { name: 'CETELEM', price: 'R$ 0,00' },
+          { name: 'DAYCOVAL', price: 'R$ 0,00' },
+          { name: 'FACTA', price: 'R$ 0,00' },
+          { name: 'ITAÚ', price: 'R$ 0,00' },
+          { name: 'MERCANTIL', price: 'R$ 0,00' },
+          { name: 'OLÉ CONSIGNADO', price: 'R$ 0,00' },
+          { name: 'PAN', price: 'R$ 0,00' },
+          { name: 'SAFRA', price: 'R$ 0,00' },
+          { name: 'BRADESCO', price: 'R$ 0,00' },
+          { name: 'BANCO DO BRASIL', price: 'R$ 0,00' },
+          { name: 'SANTANDER', price: 'R$ 0,00' },
+          { name: 'ORIGINAL', price: 'R$ 0,00' },
+          { name: 'INTER', price: 'R$ 0,00' },
+          { name: 'BRB', price: 'R$ 0,00' },
+          { name: 'CCB', price: 'R$ 0,00' },
+          { name: 'BONSUCESSO', price: 'R$ 0,00' },
+          { name: 'BCV', price: 'R$ 0,00' },
+          { name: 'BANCORBRAS', price: 'R$ 0,00' },
+          { name: 'BANESTES', price: 'R$ 0,00' },
+          { name: 'BANCO ALPHA', price: 'R$ 0,00' },
+          { name: 'SAFRA FINANCEIRA', price: 'R$ 0,00' },
+          { name: 'BANCO MASTER', price: 'R$ 0,00' },
+          { name: 'BANCOOB', price: 'R$ 0,00' },
+          { name: 'PARANÁ BANCO', price: 'R$ 0,00' },
+          { name: 'BANCO DA AMAZÔNIA', price: 'R$ 0,00' },
+          { name: 'BNB', price: 'R$ 0,00' },
+          { name: 'BANPARÁ', price: 'R$ 0,00' },
+          { name: 'BANESE', price: 'R$ 0,00' },
+          { name: 'MIDWAY', price: 'R$ 0,00' },
+          { name: 'AGIBANK', price: 'R$ 0,00' },
+          { name: 'BANSICREDI', price: 'R$ 0,00' },
+          { name: 'SICOOB', price: 'R$ 0,00' }
         ];
         
         for (const bank of defaultBanks) {
