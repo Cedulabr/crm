@@ -929,6 +929,8 @@ export class SupabaseStorage implements IStorage {
       name: user.name,
       email: user.email,
       role: user.role,
+      sector: user.sector,
+      password: user.password,
       organizationId: user.organization_id,
       createdAt: user.created_at ? new Date(user.created_at) : null,
       updatedAt: user.updated_at ? new Date(user.updated_at) : null
@@ -952,6 +954,8 @@ export class SupabaseStorage implements IStorage {
       name: data.name,
       email: data.email,
       role: data.role,
+      sector: data.sector,
+      password: data.password,
       organizationId: data.organization_id,
       createdAt: data.created_at ? new Date(data.created_at) : null,
       updatedAt: data.updated_at ? new Date(data.updated_at) : null
@@ -983,6 +987,8 @@ export class SupabaseStorage implements IStorage {
       name: data.name,
       email: data.email,
       role: data.role,
+      sector: data.sector,
+      password: data.password,
       organizationId: data.organization_id,
       createdAt: data.created_at ? new Date(data.created_at) : null,
       updatedAt: data.updated_at ? new Date(data.updated_at) : null
@@ -1017,6 +1023,8 @@ export class SupabaseStorage implements IStorage {
       name: user.name,
       email: user.email,
       role: user.role,
+      sector: user.sector || null,
+      password: user.password, // Armazenar a senha encriptada
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
@@ -1042,6 +1050,8 @@ export class SupabaseStorage implements IStorage {
       name: data.name,
       email: data.email,
       role: data.role,
+      sector: data.sector,
+      password: data.password,
       organizationId: data.organization_id,
       createdAt: data.created_at ? new Date(data.created_at) : null,
       updatedAt: data.updated_at ? new Date(data.updated_at) : null
@@ -1061,6 +1071,8 @@ export class SupabaseStorage implements IStorage {
     if (user.name) updateData.name = user.name;
     if (user.email) updateData.email = user.email;
     if (user.role) updateData.role = user.role;
+    if (user.sector !== undefined) updateData.sector = user.sector;
+    if (user.password !== undefined) updateData.password = user.password;
     if (user.organizationId !== undefined) updateData.organization_id = user.organizationId;
     
     // Atualizar usuário
@@ -1078,6 +1090,8 @@ export class SupabaseStorage implements IStorage {
       name: data.name,
       email: data.email,
       role: data.role,
+      sector: data.sector,
+      password: data.password,
       organizationId: data.organization_id,
       createdAt: data.created_at ? new Date(data.created_at) : null,
       updatedAt: data.updated_at ? new Date(data.updated_at) : null
@@ -1113,6 +1127,8 @@ export class SupabaseStorage implements IStorage {
       name: user.name,
       email: user.email,
       role: user.role,
+      sector: user.sector,
+      password: user.password,
       organizationId: user.organization_id,
       createdAt: user.created_at ? new Date(user.created_at) : null,
       updatedAt: user.updated_at ? new Date(user.updated_at) : null
@@ -1173,6 +1189,13 @@ export class SupabaseStorage implements IStorage {
     return data.map(org => ({
       id: org.id,
       name: org.name,
+      phone: org.phone,
+      email: org.email,
+      address: org.address,
+      cnpj: org.cnpj,
+      website: org.website,
+      description: org.description,
+      logo: org.logo,
       createdAt: org.created_at ? new Date(org.created_at) : null
     }));
   }
@@ -1192,17 +1215,35 @@ export class SupabaseStorage implements IStorage {
     return {
       id: data.id,
       name: data.name,
+      phone: data.phone,
+      email: data.email,
+      address: data.address,
+      cnpj: data.cnpj,
+      website: data.website,
+      description: data.description,
+      logo: data.logo,
       createdAt: data.created_at ? new Date(data.created_at) : null
     };
   }
   
   async createOrganization(organization: InsertOrganization): Promise<Organization> {
+    const insertData: any = {
+      name: organization.name,
+      created_at: new Date().toISOString()
+    };
+    
+    // Adicionar campos opcionais se fornecidos
+    if (organization.phone !== undefined) insertData.phone = organization.phone;
+    if (organization.email !== undefined) insertData.email = organization.email;
+    if (organization.address !== undefined) insertData.address = organization.address;
+    if (organization.cnpj !== undefined) insertData.cnpj = organization.cnpj;
+    if (organization.website !== undefined) insertData.website = organization.website;
+    if (organization.description !== undefined) insertData.description = organization.description;
+    if (organization.logo !== undefined) insertData.logo = organization.logo;
+    
     const { data, error } = await supabase
       .from('organizations')
-      .insert({
-        name: organization.name,
-        created_at: new Date().toISOString()
-      })
+      .insert(insertData)
       .select()
       .single();
     
@@ -1211,6 +1252,13 @@ export class SupabaseStorage implements IStorage {
     return {
       id: data.id,
       name: data.name,
+      phone: data.phone,
+      email: data.email,
+      address: data.address,
+      cnpj: data.cnpj,
+      website: data.website,
+      description: data.description,
+      logo: data.logo,
       createdAt: data.created_at ? new Date(data.created_at) : null
     };
   }
@@ -1220,12 +1268,22 @@ export class SupabaseStorage implements IStorage {
     const existingOrg = await this.getOrganizationById(id);
     if (!existingOrg) return undefined;
     
+    // Construir objeto de atualização apenas com campos válidos
+    const updateData: Record<string, any> = {};
+    
+    if (organization.name !== undefined) updateData.name = organization.name;
+    if (organization.phone !== undefined) updateData.phone = organization.phone;
+    if (organization.email !== undefined) updateData.email = organization.email;
+    if (organization.address !== undefined) updateData.address = organization.address;
+    if (organization.cnpj !== undefined) updateData.cnpj = organization.cnpj;
+    if (organization.website !== undefined) updateData.website = organization.website;
+    if (organization.description !== undefined) updateData.description = organization.description;
+    if (organization.logo !== undefined) updateData.logo = organization.logo;
+    
     // Atualizar
     const { data, error } = await supabase
       .from('organizations')
-      .update({
-        name: organization.name
-      })
+      .update(updateData)
       .eq('id', id)
       .select()
       .single();
@@ -1235,6 +1293,13 @@ export class SupabaseStorage implements IStorage {
     return {
       id: data.id,
       name: data.name,
+      phone: data.phone,
+      email: data.email,
+      address: data.address,
+      cnpj: data.cnpj,
+      website: data.website,
+      description: data.description,
+      logo: data.logo,
       createdAt: data.created_at ? new Date(data.created_at) : null
     };
   }

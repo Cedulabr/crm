@@ -141,16 +141,37 @@ export interface Database {
         Row: {
           id: number
           name: string
+          address: string | null
+          phone: string | null
+          cnpj: string | null
+          email: string | null
+          website: string | null
+          description: string | null
+          logo: string | null
           created_at: string | null
         }
         Insert: {
           id?: number
           name: string
+          address?: string | null
+          phone?: string | null
+          cnpj?: string | null
+          email?: string | null
+          website?: string | null
+          description?: string | null
+          logo?: string | null
           created_at?: string | null
         }
         Update: {
           id?: number
           name?: string
+          address?: string | null
+          phone?: string | null
+          cnpj?: string | null
+          email?: string | null
+          website?: string | null
+          description?: string | null
+          logo?: string | null
           created_at?: string | null
         }
         Relationships: []
@@ -258,7 +279,9 @@ export interface Database {
           name: string
           email: string
           role: string
+          sector: string | null
           organization_id: number | null
+          password: string | null
           created_at: string | null
           updated_at: string | null
         }
@@ -267,7 +290,9 @@ export interface Database {
           name: string
           email: string
           role: string
+          sector?: string | null
           organization_id?: number | null
+          password?: string | null
           created_at?: string | null
           updated_at?: string | null
         }
@@ -276,7 +301,9 @@ export interface Database {
           name?: string
           email?: string
           role?: string
+          sector?: string | null
           organization_id?: number | null
+          password?: string | null
           created_at?: string | null
           updated_at?: string | null
         }
