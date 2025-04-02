@@ -64,7 +64,7 @@ export default function UserForm({ user, onClose }: UserFormProps) {
       name: user?.name || "",
       email: user?.email || "",
       role: user?.role || "agent", // Default to agent
-      organizationId: user?.organizationId || currentUser?.organizationId,
+      organizationId: user?.organizationId || (currentUser?.organizationId ? Number(currentUser.organizationId) : 1),
     },
   });
 
@@ -106,8 +106,14 @@ export default function UserForm({ user, onClose }: UserFormProps) {
   const onSubmit = (data: z.infer<typeof userFormSchema>) => {
     // Adiciona organizationId se não estiver presente
     if (!data.organizationId) {
-      data.organizationId = currentUser?.organizationId;
+      data.organizationId = currentUser?.organizationId ? Number(currentUser.organizationId) : 1; // Fallback para organizationId=1 se não tiver
     }
+    
+    // Garante que organizationId seja um número
+    data.organizationId = Number(data.organizationId);
+    
+    // Para debugging
+    console.log("Enviando dados de usuário:", data);
     
     userMutation.mutate(data);
   };

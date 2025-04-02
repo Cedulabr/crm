@@ -9,6 +9,13 @@ export enum UserRole {
   SUPERADMIN = 'superadmin'
 }
 
+// Organization table - Para agrupar usuários da mesma empresa/organização
+export const organizations = pgTable("organizations", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  createdAt: timestamp("created_at").defaultNow()
+});
+
 // Users table
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -16,6 +23,7 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   // Note: Não armazenamos senhas diretamente, o Supabase fará isso por nós 
   role: text("role").notNull().default(UserRole.AGENT),
+  organizationId: integer("organization_id").references(() => organizations.id), // ID da organização do usuário
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow()
 });
@@ -32,13 +40,6 @@ export const products = pgTable("products", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   price: text("price")
-});
-
-// Organization table - Para agrupar usuários da mesma empresa/organização
-export const organizations = pgTable("organizations", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  createdAt: timestamp("created_at").defaultNow()
 });
 
 // Clients table
