@@ -1,0 +1,139 @@
+Claro! Abaixo está a resposta ajustada para sua solicitação de criar um MVP removendo as partes de autenticação, notificações e segurança. Vou apresentar um **Product Requirements Document (PRD)** simplificado que foca apenas nas funcionalidades essenciais do aplicativo de gestão de clientes e vendas.
+
+---
+
+## **Product Requirements Document (PRD) - MVP**
+
+### **1. Visão Geral do Produto**
+O aplicativo será uma ferramenta simples para empresas gerenciarem clientes e vendas. Ele permitirá organizar informações de clientes, criar e acompanhar propostas de vendas e visualizar o progresso no pipeline por meio de um Kanban. Para o MVP, excluímos autenticação, notificações e segurança, focando apenas no núcleo funcional.
+
+### **2. Objetivos do Produto**
+- Facilitar o cadastro e a gestão de clientes.
+- Criar e monitorar propostas de vendas.
+- Oferecer filtros básicos para análise.
+- Usar um Kanban para acompanhar o progresso dos clientes.
+
+### **3. Funcionalidades Principais**
+
+#### **3.1 Gestão de Clientes**
+- Cadastro de clientes com nome, contato e empresa.
+- Edição e visualização das informações.
+
+#### **3.2 Gestão de Vendas**
+- Criação de propostas com produto, convênio, banco e valor.
+- Acompanhamento do status (ex.: em negociação, aceita, recusada).
+
+#### **3.3 Filtros Básicos**
+- Filtrar propostas por produto.
+- Filtrar propostas por valor.
+
+#### **3.4 Kanban de Clientes**
+- Quadro Kanban com colunas como "Lead", "Qualificação", "Negociação" e "Fechamento".
+- Movimentação de clientes entre colunas via arrastar e soltar.
+
+#### **3.5 Entrada de Dados**
+- Formulários simples para cadastrar clientes e propostas.
+
+### **4. Requisitos Técnicos**
+
+#### **4.1 Banco de Dados**
+O banco será relacional e simples. Aqui está o schema:
+
+```sql
+-- Clientes
+CREATE TABLE Clientes (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    nome VARCHAR(255) NOT NULL,
+    contato VARCHAR(255),
+    empresa VARCHAR(255),
+    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Produtos
+CREATE TABLE Produtos (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    nome VARCHAR(255) NOT NULL,
+    preco DECIMAL(10, 2)
+);
+
+-- Convênios
+CREATE TABLE Convenios (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    nome VARCHAR(255) NOT NULL
+);
+
+-- Bancos
+CREATE TABLE Bancos (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    nome VARCHAR(255) NOT NULL
+);
+
+-- Propostas
+CREATE TABLE Propostas (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    cliente_id INT,
+    produto_id INT,
+    convenio_id INT,
+    banco_id INT,
+    valor DECIMAL(10, 2),
+    status VARCHAR(50),
+    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (cliente_id) REFERENCES Clientes(id),
+    FOREIGN KEY (produto_id) REFERENCES Produtos(id),
+    FOREIGN KEY (convenio_id) REFERENCES Convenios(id),
+    FOREIGN KEY (banco_id) REFERENCES Bancos(id)
+);
+
+-- Kanban
+CREATE TABLE Kanban (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    cliente_id INT,
+    coluna VARCHAR(50),  -- Ex.: 'Lead', 'Negociação'
+    posicao INT,         -- Ordem na coluna
+    FOREIGN KEY (cliente_id) REFERENCES Clientes(id)
+);
+```
+
+#### **4.2 Tecnologias**
+- **Frontend:** React.js ou Vue.js.
+- **Backend:** Node.js com Express ou Django.
+- **Banco:** MySQL ou PostgreSQL.
+
+### **5. Interface do Usuário**
+- **Dashboard:** Resumo de clientes e vendas.
+- **Clientes:** Lista com busca simples.
+- **Propostas:** Lista com filtros por produto e valor.
+- **Kanban:** Quadro interativo.
+- **Formulários:** Telas de cadastro.
+
+### **6. Fluxo de Trabalho**
+1. Cadastrar um cliente.
+2. Criar uma proposta para o cliente.
+3. Mover o cliente no Kanban conforme o progresso.
+4. Aplicar filtros para analisar dados.
+
+### **7. Passo a Passo para Desenvolvimento**
+#### **Passo 1: Escopo**
+- Confirme este PRD e priorize clientes e Kanban.
+
+#### **Passo 2: Banco de Dados**
+- Configure o schema em MySQL/PostgreSQL.
+
+#### **Passo 3: Backend**
+- Crie APIs para clientes, propostas e Kanban.
+
+#### **Passo 4: Frontend**
+- Desenvolva as telas e integre com o backend.
+
+#### **Passo 5: Testes**
+- Teste as funcionalidades básicas e corrija erros.
+
+#### **Passo 6: Deploy**
+- Hospede em Heroku ou AWS.
+
+### **8. Considerações Finais**
+Este PRD é a base para seu MVP, sem autenticação, notificações ou segurança, garantindo rapidez no desenvolvimento. Se precisar de ajustes, é só avisar!
+
+--- 
+
+Espero que isso esteja alinhado com o que você precisa! Qualquer dúvida, é só me chamar.
