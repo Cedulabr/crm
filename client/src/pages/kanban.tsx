@@ -33,6 +33,7 @@ const COLUMN_COLORS: Record<KanbanColumnType, string> = {
 
 export default function Kanban() {
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [selectedClient, setSelectedClient] = useState<ClientWithKanban | null>(null);
   const { toast } = useToast();
   
   // Fetch clients with kanban data
@@ -68,6 +69,12 @@ export default function Kanban() {
   const handleMoveClient = (clientId: number, targetColumn: string) => {
     updateClientKanbanMutation.mutate({ clientId, column: targetColumn });
   };
+  
+  // Handle editing a client
+  const handleEditClient = (client: ClientWithKanban) => {
+    setSelectedClient(client);
+    setIsFormOpen(true);
+  };
 
   return (
     <DndProvider backend={HTML5Backend}>
@@ -97,17 +104,27 @@ export default function Kanban() {
                   count={kanbanData[column]?.length || 0}
                   columnId={column}
                   onMoveClient={handleMoveClient}
+                  onEditClient={handleEditClient}
                 />
               ))}
             </div>
           </div>
         )}
         
-        {/* New Client Dialog */}
-        <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+        {/* Client Dialog (New/Edit) */}
+        <Dialog open={isFormOpen} onOpenChange={(open) => {
+          setIsFormOpen(open);
+          if (!open) setSelectedClient(null);
+        }}>
           <DialogContent className="max-w-md">
-            <DialogTitle>Novo Cliente</DialogTitle>
-            <ClientForm onClose={() => setIsFormOpen(false)} />
+            <DialogTitle>{selectedClient ? 'Editar Cliente' : 'Novo Cliente'}</DialogTitle>
+            <ClientForm 
+              client={selectedClient} 
+              onClose={() => {
+                setIsFormOpen(false);
+                setSelectedClient(null);
+              }} 
+            />
           </DialogContent>
         </Dialog>
       </section>

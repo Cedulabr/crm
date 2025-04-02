@@ -45,6 +45,7 @@ export const proposals = pgTable("proposals", {
   convenioId: integer("convenio_id").references(() => convenios.id),
   bankId: integer("bank_id").references(() => banks.id),
   value: text("value"),
+  comments: text("comments"),
   status: text("status").notNull(), // 'em_negociacao', 'aceita', 'em_analise', 'recusada'
   createdAt: timestamp("created_at").defaultNow()
 });

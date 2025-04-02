@@ -23,6 +23,7 @@ const proposalFormSchema = insertProposalSchema
     convenioId: z.string().min(1, { message: "Convênio é obrigatório" }),
     bankId: z.string().min(1, { message: "Banco é obrigatório" }),
     value: z.string().min(1, { message: "Valor é obrigatório" }),
+    comments: z.string().optional(),
     status: z.string(),
   });
 
@@ -68,6 +69,7 @@ export default function ProposalForm({ proposal, onClose }: ProposalFormProps) {
     value: proposal?.value ? 
       new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(proposal.value)) 
       : "",
+    comments: proposal?.comments || "",
     status: proposal?.status || "em_negociacao",
   };
 
@@ -92,6 +94,7 @@ export default function ProposalForm({ proposal, onClose }: ProposalFormProps) {
         convenioId: data.convenioId ? parseInt(data.convenioId) : undefined,
         bankId: data.bankId ? parseInt(data.bankId) : undefined,
         value: rawValue,
+        comments: data.comments,
         status: data.status
       };
       return apiRequest('POST', '/api/proposals', formattedData);
@@ -133,6 +136,7 @@ export default function ProposalForm({ proposal, onClose }: ProposalFormProps) {
         convenioId: data.formData.convenioId ? parseInt(data.formData.convenioId) : undefined,
         bankId: data.formData.bankId ? parseInt(data.formData.bankId) : undefined,
         value: rawValue,
+        comments: data.formData.comments,
         status: data.formData.status
       };
       return apiRequest('PUT', `/api/proposals/${data.id}`, formattedData);
@@ -403,6 +407,24 @@ export default function ProposalForm({ proposal, onClose }: ProposalFormProps) {
               </FormItem>
             );
           }}
+        />
+        
+        <FormField
+          control={form.control}
+          name="comments"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Comentários</FormLabel>
+              <FormControl>
+                <textarea 
+                  placeholder="Adicione comentários ou observações sobre a proposta"
+                  className="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  {...field}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
         />
         
         <FormField

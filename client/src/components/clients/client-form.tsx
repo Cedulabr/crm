@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
-import { insertClientSchema, type Client, type Convenio } from "@shared/schema";
+import { insertClientSchema, type Client, type ClientWithKanban, type Convenio } from "@shared/schema";
 import { z } from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -24,7 +24,7 @@ const clientFormSchema = insertClientSchema.extend({
 type ClientFormData = z.infer<typeof clientFormSchema>;
 
 interface ClientFormProps {
-  client?: Client | null;
+  client?: Client | ClientWithKanban | null;
   onClose: () => void;
 }
 

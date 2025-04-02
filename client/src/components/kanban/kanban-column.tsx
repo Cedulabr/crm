@@ -9,6 +9,7 @@ interface KanbanColumnProps {
   count: number;
   columnId: string;
   onMoveClient: (clientId: number, targetColumn: string) => void;
+  onEditClient?: (client: ClientWithKanban) => void;
 }
 
 export default function KanbanColumn({ 
@@ -17,7 +18,8 @@ export default function KanbanColumn({
   clients, 
   count, 
   columnId,
-  onMoveClient
+  onMoveClient,
+  onEditClient
 }: KanbanColumnProps) {
   // Set up drop target
   const [{ isOver }, drop] = useDrop(() => ({
@@ -52,6 +54,7 @@ export default function KanbanColumn({
                 key={client.id} 
                 client={client} 
                 columnId={columnId}
+                onEdit={onEditClient}
               />
             ))
           ) : (

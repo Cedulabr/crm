@@ -110,7 +110,11 @@ export default function ProposalCard({ proposal, onEdit, onDelete }: ProposalCar
             }
           </span>
         </div>
-        <Button variant="link" className="text-primary-dark hover:underline text-sm font-medium">
+        <Button 
+          variant="link" 
+          className="text-primary-dark hover:underline text-sm font-medium"
+          onClick={onEdit}
+        >
           Ver detalhes
         </Button>
       </CardFooter>

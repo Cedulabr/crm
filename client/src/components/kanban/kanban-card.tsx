@@ -8,9 +8,10 @@ import { type ClientWithKanban } from "@shared/schema";
 interface KanbanCardProps {
   client: ClientWithKanban;
   columnId: string;
+  onEdit?: (client: ClientWithKanban) => void;
 }
 
-export default function KanbanCard({ client, columnId }: KanbanCardProps) {
+export default function KanbanCard({ client, columnId, onEdit }: KanbanCardProps) {
   // Set up drag source
   const [{ isDragging }, drag] = useDrag(() => ({
     type: 'kanban-card',
@@ -36,6 +37,16 @@ export default function KanbanCard({ client, columnId }: KanbanCardProps) {
   const badgeClass = client.proposalCount === 0 
     ? 'bg-neutral-300 bg-opacity-30 text-neutral-500'
     : 'bg-primary-light bg-opacity-10 text-primary-dark';
+  
+  // Get badge variant
+  const badgeVariant = client.proposalCount ? "default" : "outline";
+
+  // Handle double click on card
+  const handleDoubleClick = () => {
+    if (onEdit) {
+      onEdit(client);
+    }
+  };
 
   return (
     <Card 
@@ -43,6 +54,7 @@ export default function KanbanCard({ client, columnId }: KanbanCardProps) {
       className={`bg-white p-4 rounded-lg border border-neutral-200 shadow-sm cursor-move hover:shadow-md transition kanban-card ${
         isDragging ? 'opacity-40' : ''
       }`}
+      onDoubleClick={handleDoubleClick}
     >
       <CardContent className="p-0">
         <div className="flex justify-between items-start mb-3">
@@ -51,10 +63,22 @@ export default function KanbanCard({ client, columnId }: KanbanCardProps) {
             <p className="text-xs text-neutral-400">{client.name}</p>
           </div>
           <div className="flex space-x-1">
-            <Button variant="ghost" size="icon" className="h-6 w-6 text-neutral-400 hover:text-primary-dark">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-6 w-6 text-neutral-400 hover:text-primary-dark"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onEdit) onEdit(client);
+              }}
+            >
               <span className="material-icons text-sm">edit</span>
             </Button>
-            <Button variant="ghost" size="icon" className="h-6 w-6 text-neutral-400 hover:text-primary-dark">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-6 w-6 text-neutral-400 hover:text-primary-dark"
+            >
               <span className="material-icons text-sm">more_vert</span>
             </Button>
           </div>
@@ -65,7 +89,7 @@ export default function KanbanCard({ client, columnId }: KanbanCardProps) {
         </div>
         <div className="border-t border-neutral-100 pt-3">
           <div className="flex justify-between items-center">
-            <Badge variant={client.proposalCount ? "primary" : "outline"} className={`px-2 py-1 text-xs rounded-full ${badgeClass}`}>
+            <Badge variant={badgeVariant} className={`px-2 py-1 text-xs rounded-full ${badgeClass}`}>
               {proposalText}
             </Badge>
             <span className="text-sm font-medium text-neutral-500">
