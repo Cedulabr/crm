@@ -17,19 +17,21 @@ export const clients = pgTable("clients", {
 export const products = pgTable("products", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
-  price: decimal("price", { precision: 10, scale: 2 })
+  price: text("price")
 });
 
 // Convenios (agreements) table
 export const convenios = pgTable("convenios", {
   id: serial("id").primaryKey(),
-  name: text("name").notNull()
+  name: text("name").notNull(),
+  price: text("price")
 });
 
 // Banks table
 export const banks = pgTable("banks", {
   id: serial("id").primaryKey(),
-  name: text("name").notNull()
+  name: text("name").notNull(),
+  price: text("price")
 });
 
 // Proposals table
@@ -39,7 +41,7 @@ export const proposals = pgTable("proposals", {
   productId: integer("product_id").references(() => products.id),
   convenioId: integer("convenio_id").references(() => convenios.id),
   bankId: integer("bank_id").references(() => banks.id),
-  value: decimal("value", { precision: 10, scale: 2 }),
+  value: text("value"),
   status: text("status").notNull(), // 'em_negociacao', 'aceita', 'em_analise', 'recusada'
   createdAt: timestamp("created_at").defaultNow()
 });
@@ -80,7 +82,7 @@ export type InsertKanban = z.infer<typeof insertKanbanSchema>;
 export type ClientWithKanban = Client & {
   kanban?: Kanban;
   proposalCount?: number;
-  totalValue?: string | number;
+  totalValue?: string | number | null;
 };
 
 export type ClientWithProposals = Client & {

@@ -1,8 +1,17 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
+import { SupabaseStorage } from "./storage-supabase";
 import { z } from "zod";
 import { insertClientSchema, insertProposalSchema, insertKanbanSchema } from "@shared/schema";
+
+// Verifique se estamos usando o Supabase ou MemStorage com base nas variáveis de ambiente
+// Se SUPABASE_URL e SUPABASE_KEY estiverem definidos, use o SupabaseStorage
+import { storage as memStorage } from "./storage";
+import { check_env } from "./check-env";
+
+// Determine qual armazenamento usar
+const useSupabase = check_env("SUPABASE_URL") && check_env("SUPABASE_KEY");
+const storage = useSupabase ? new SupabaseStorage() : memStorage;
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // =================
