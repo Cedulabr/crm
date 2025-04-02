@@ -15,20 +15,24 @@ import { DndProvider } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 
 // Define column types for kanban
-type KanbanColumnType = 'lead' | 'qualificacao' | 'negociacao' | 'fechamento';
+type KanbanColumnType = 'lead' | 'qualificacao' | 'negociacao' | 'pendente' | 'recusada' | 'finalizada';
 
 const COLUMN_LABELS: Record<KanbanColumnType, string> = {
-  lead: 'Lead',
-  qualificacao: 'Qualificação',
-  negociacao: 'Negociação',
-  fechamento: 'Fechamento'
+  lead: 'Nova proposta',
+  qualificacao: 'Proposta em andamento',
+  negociacao: 'Proposta em negociação',
+  pendente: 'Proposta pendente',
+  recusada: 'Proposta recusada',
+  finalizada: 'Proposta finalizada'
 };
 
 const COLUMN_COLORS: Record<KanbanColumnType, string> = {
   lead: 'bg-primary-light',
   qualificacao: 'bg-secondary-light',
-  negociacao: 'bg-error-light',
-  fechamento: 'bg-success-light'
+  negociacao: 'bg-warning-light',
+  pendente: 'bg-info-light',
+  recusada: 'bg-error-light',
+  finalizada: 'bg-success-light'
 };
 
 export default function Kanban() {
@@ -96,7 +100,7 @@ export default function Kanban() {
         ) : (
           <div className="overflow-x-auto pb-6">
             <div className="flex space-x-6 min-w-max">
-              {(['lead', 'qualificacao', 'negociacao', 'fechamento'] as KanbanColumnType[]).map(column => (
+              {(['lead', 'qualificacao', 'negociacao', 'pendente', 'recusada', 'finalizada'] as KanbanColumnType[]).map(column => (
                 <KanbanColumn
                   key={column}
                   title={COLUMN_LABELS[column]}
@@ -139,7 +143,9 @@ function groupClientsByColumn(clients: ClientWithKanban[]): Record<string, Clien
     lead: [],
     qualificacao: [],
     negociacao: [],
-    fechamento: []
+    pendente: [],
+    recusada: [],
+    finalizada: []
   };
   
   clients.forEach(client => {

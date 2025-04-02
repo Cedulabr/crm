@@ -222,7 +222,7 @@ export default function Proposals() {
 
       {/* New/Edit Proposal Dialog */}
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogTitle>
             {editingProposal ? "Editar Proposta" : "Nova Proposta"}
           </DialogTitle>

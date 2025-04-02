@@ -373,7 +373,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status = 'qualificacao';
       } else if (column === 'negociacao') {
         status = 'em_negociacao';
-      } else if (column === 'fechamento') {
+      } else if (column === 'pendente') {
+        status = 'em_analise';
+      } else if (column === 'recusada') {
+        status = 'recusada';
+      } else if (column === 'finalizada') {
         status = 'aceita';
       }
       

@@ -307,8 +307,36 @@ export class MemStorage implements IStorage {
 
   async createProposal(proposal: InsertProposal): Promise<Proposal> {
     const id = this.proposalId++;
-    const newProposal: Proposal = { ...proposal, id, createdAt: new Date() };
+    // Sempre criar com status 'lead' para que apareça em "Nova proposta" no Kanban
+    const status = 'lead';
+    const newProposal: Proposal = { ...proposal, id, createdAt: new Date(), status };
     this.proposals.set(id, newProposal);
+    
+    // Verificar se o cliente já tem uma entrada no Kanban
+    const client = this.clients.get(proposal.clientId || 0);
+    if (client) {
+      const existingKanban = Array.from(this.kanbanEntries.values())
+        .find(entry => entry.clientId === client.id);
+      
+      // Se o cliente não tiver uma entrada no Kanban, criar uma
+      if (!existingKanban) {
+        const kanbanId = this.kanbanId++;
+        const position = this.getNextPositionForColumn('lead');
+        const kanbanEntry: Kanban = {
+          id: kanbanId,
+          clientId: client.id,
+          column: 'lead',
+          position
+        };
+        this.kanbanEntries.set(kanbanId, kanbanEntry);
+      } else if (existingKanban.column !== 'lead') {
+        // Se o cliente já tiver uma entrada no Kanban, mas não estiver na coluna "Nova proposta"
+        // Mover para a coluna "Nova proposta"
+        existingKanban.column = 'lead';
+        existingKanban.position = this.getNextPositionForColumn('lead');
+      }
+    }
+    
     return newProposal;
   }
 

@@ -70,7 +70,7 @@ export default function ProposalForm({ proposal, onClose }: ProposalFormProps) {
       new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(proposal.value)) 
       : "",
     comments: proposal?.comments || "",
-    status: proposal?.status || "em_negociacao",
+    status: proposal?.status || "lead",
   };
 
   // Initialize form
@@ -182,232 +182,267 @@ export default function ProposalForm({ proposal, onClose }: ProposalFormProps) {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 mt-4">
-        <FormField
-          control={form.control}
-          name="clientName"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Nome do Cliente *</FormLabel>
-              <FormControl>
-                <Input placeholder="Nome completo do cliente" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        
-        <FormField
-          control={form.control}
-          name="clientCpf"
-          render={({ field }) => {
-            // Função para formatar o CPF no padrão 031.458.655-52
-            const formatCpf = (value: string) => {
-              // Remove todos os caracteres não numéricos
-              const numbers = value.replace(/\D/g, '');
-              
-              if (numbers.length === 0) return '';
-              
-              // Aplica a formatação
-              if (numbers.length <= 3) {
-                return numbers;
-              } else if (numbers.length <= 6) {
-                return `${numbers.slice(0, 3)}.${numbers.slice(3)}`;
-              } else if (numbers.length <= 9) {
-                return `${numbers.slice(0, 3)}.${numbers.slice(3, 6)}.${numbers.slice(6)}`;
-              } else {
-                return `${numbers.slice(0, 3)}.${numbers.slice(3, 6)}.${numbers.slice(6, 9)}-${numbers.slice(9, 11)}`;
-              }
-            };
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <FormField
+              control={form.control}
+              name="clientName"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Nome do Cliente *</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Nome completo do cliente" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             
-            return (
-              <FormItem>
-                <FormLabel>CPF do Cliente *</FormLabel>
-                <FormControl>
-                  <Input 
-                    placeholder="000.000.000-00" 
-                    value={field.value || ''}
-                    onChange={(e) => {
-                      const formatted = formatCpf(e.target.value);
-                      field.onChange(formatted);
-                    }}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            );
-          }}
-        />
-        
-        <FormField
-          control={form.control}
-          name="clientPhone"
-          render={({ field }) => {
-            // Função para formatar o telefone no padrão (71)98600-7832
-            const formatPhone = (value: string) => {
-              // Remove todos os caracteres não numéricos
-              const numbers = value.replace(/\D/g, '');
-              
-              if (numbers.length === 0) return '';
-              
-              // Aplica a formatação
-              if (numbers.length <= 2) {
-                return `(${numbers}`;
-              } else if (numbers.length <= 7) {
-                return `(${numbers.slice(0, 2)})${numbers.slice(2)}`;
-              } else {
-                return `(${numbers.slice(0, 2)})${numbers.slice(2, 7)}-${numbers.slice(7, 11)}`;
-              }
-            };
+            <FormField
+              control={form.control}
+              name="clientCpf"
+              render={({ field }) => {
+                // Função para formatar o CPF no padrão 031.458.655-52
+                const formatCpf = (value: string) => {
+                  // Remove todos os caracteres não numéricos
+                  const numbers = value.replace(/\D/g, '');
+                  
+                  if (numbers.length === 0) return '';
+                  
+                  // Aplica a formatação
+                  if (numbers.length <= 3) {
+                    return numbers;
+                  } else if (numbers.length <= 6) {
+                    return `${numbers.slice(0, 3)}.${numbers.slice(3)}`;
+                  } else if (numbers.length <= 9) {
+                    return `${numbers.slice(0, 3)}.${numbers.slice(3, 6)}.${numbers.slice(6)}`;
+                  } else {
+                    return `${numbers.slice(0, 3)}.${numbers.slice(3, 6)}.${numbers.slice(6, 9)}-${numbers.slice(9, 11)}`;
+                  }
+                };
+                
+                return (
+                  <FormItem className="mt-3">
+                    <FormLabel>CPF do Cliente *</FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder="000.000.000-00" 
+                        value={field.value || ''}
+                        onChange={(e) => {
+                          const formatted = formatCpf(e.target.value);
+                          field.onChange(formatted);
+                        }}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                );
+              }}
+            />
             
-            return (
-              <FormItem>
-                <FormLabel>Telefone do Cliente</FormLabel>
-                <FormControl>
-                  <Input 
-                    placeholder="(00)00000-0000" 
-                    value={field.value || ''}
-                    onChange={(e) => {
-                      const formatted = formatPhone(e.target.value);
-                      field.onChange(formatted);
-                    }}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            );
-          }}
-        />
-        
-        <FormField
-          control={form.control}
-          name="productId"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Produto *</FormLabel>
-              <Select 
-                onValueChange={field.onChange} 
-                defaultValue={field.value}
-              >
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o produto" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {Array.isArray(products) && products.map((product: any) => (
-                    <SelectItem key={product.id} value={product.id.toString()}>
-                      {product.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        
-        <FormField
-          control={form.control}
-          name="convenioId"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Convênio *</FormLabel>
-              <Select 
-                onValueChange={field.onChange} 
-                defaultValue={field.value}
-              >
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o convênio" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {Array.isArray(convenios) && convenios.map((convenio: any) => (
-                    <SelectItem key={convenio.id} value={convenio.id.toString()}>
-                      {convenio.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        
-        <FormField
-          control={form.control}
-          name="bankId"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Banco *</FormLabel>
-              <Select 
-                onValueChange={field.onChange} 
-                defaultValue={field.value}
-              >
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o banco" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {Array.isArray(banks) && banks.map((bank: any) => (
-                    <SelectItem key={bank.id} value={bank.id.toString()}>
-                      {bank.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        
-        <FormField
-          control={form.control}
-          name="value"
-          render={({ field }) => {
-            const formatCurrency = (value: string) => {
-              // Remove todos os caracteres não numéricos
-              const onlyNums = value.replace(/[^\d]/g, '');
-              
-              if (onlyNums === '') return '';
-              
-              // Converte para número e divide por 100 para considerar centavos
-              const amount = parseInt(onlyNums, 10) / 100;
-              
-              // Formata como moeda brasileira
-              return new Intl.NumberFormat('pt-BR', {
-                style: 'currency',
-                currency: 'BRL',
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
-              }).format(amount);
-            };
+            <FormField
+              control={form.control}
+              name="clientPhone"
+              render={({ field }) => {
+                // Função para formatar o telefone no padrão (71)98600-7832
+                const formatPhone = (value: string) => {
+                  // Remove todos os caracteres não numéricos
+                  const numbers = value.replace(/\D/g, '');
+                  
+                  if (numbers.length === 0) return '';
+                  
+                  // Aplica a formatação
+                  if (numbers.length <= 2) {
+                    return `(${numbers}`;
+                  } else if (numbers.length <= 7) {
+                    return `(${numbers.slice(0, 2)})${numbers.slice(2)}`;
+                  } else {
+                    return `(${numbers.slice(0, 2)})${numbers.slice(2, 7)}-${numbers.slice(7, 11)}`;
+                  }
+                };
+                
+                return (
+                  <FormItem className="mt-3">
+                    <FormLabel>Telefone do Cliente</FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder="(00)00000-0000" 
+                        value={field.value || ''}
+                        onChange={(e) => {
+                          const formatted = formatPhone(e.target.value);
+                          field.onChange(formatted);
+                        }}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                );
+              }}
+            />
+
+            <FormField
+              control={form.control}
+              name="status"
+              render={({ field }) => (
+                <FormItem className="mt-3">
+                  <FormLabel>Status</FormLabel>
+                  <Select 
+                    onValueChange={field.onChange} 
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o status" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="lead">Nova Proposta</SelectItem>
+                      <SelectItem value="qualificacao">Qualificação</SelectItem>
+                      <SelectItem value="em_negociacao">Em Negociação</SelectItem>
+                      <SelectItem value="em_analise">Pendente</SelectItem>
+                      <SelectItem value="recusada">Recusada</SelectItem>
+                      <SelectItem value="aceita">Finalizada</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+          
+          <div>
+            <FormField
+              control={form.control}
+              name="productId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Produto *</FormLabel>
+                  <Select 
+                    onValueChange={field.onChange} 
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o produto" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {Array.isArray(products) && products.map((product: any) => (
+                        <SelectItem key={product.id} value={product.id.toString()}>
+                          {product.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             
-            return (
-              <FormItem>
-                <FormLabel>Valor *</FormLabel>
-                <FormControl>
-                  <Input
-                    placeholder="R$ 0,00"
-                    value={field.value}
-                    onChange={(e) => {
-                      const rawValue = e.target.value;
-                      // Só formata se tiver algum valor
-                      if (rawValue) {
-                        const formatted = formatCurrency(rawValue);
-                        field.onChange(formatted);
-                      } else {
-                        field.onChange('');
-                      }
-                    }}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            );
-          }}
-        />
+            <FormField
+              control={form.control}
+              name="convenioId"
+              render={({ field }) => (
+                <FormItem className="mt-3">
+                  <FormLabel>Convênio *</FormLabel>
+                  <Select 
+                    onValueChange={field.onChange} 
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o convênio" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {Array.isArray(convenios) && convenios.map((convenio: any) => (
+                        <SelectItem key={convenio.id} value={convenio.id.toString()}>
+                          {convenio.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            
+            <FormField
+              control={form.control}
+              name="bankId"
+              render={({ field }) => (
+                <FormItem className="mt-3">
+                  <FormLabel>Banco *</FormLabel>
+                  <Select 
+                    onValueChange={field.onChange} 
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o banco" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {Array.isArray(banks) && banks.map((bank: any) => (
+                        <SelectItem key={bank.id} value={bank.id.toString()}>
+                          {bank.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            
+            <FormField
+              control={form.control}
+              name="value"
+              render={({ field }) => {
+                const formatCurrency = (value: string) => {
+                  // Remove todos os caracteres não numéricos
+                  const onlyNums = value.replace(/[^\d]/g, '');
+                  
+                  if (onlyNums === '') return '';
+                  
+                  // Converte para número e divide por 100 para considerar centavos
+                  const amount = parseInt(onlyNums, 10) / 100;
+                  
+                  // Formata como moeda brasileira
+                  return new Intl.NumberFormat('pt-BR', {
+                    style: 'currency',
+                    currency: 'BRL',
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                  }).format(amount);
+                };
+                
+                return (
+                  <FormItem className="mt-3">
+                    <FormLabel>Valor *</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="R$ 0,00"
+                        value={field.value}
+                        onChange={(e) => {
+                          const rawValue = e.target.value;
+                          // Só formata se tiver algum valor
+                          if (rawValue) {
+                            const formatted = formatCurrency(rawValue);
+                            field.onChange(formatted);
+                          } else {
+                            field.onChange('');
+                          }
+                        }}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                );
+              }}
+            />
+          </div>
+        </div>
         
         <FormField
           control={form.control}
@@ -422,33 +457,6 @@ export default function ProposalForm({ proposal, onClose }: ProposalFormProps) {
                   {...field}
                 />
               </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        
-        <FormField
-          control={form.control}
-          name="status"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Status</FormLabel>
-              <Select 
-                onValueChange={field.onChange} 
-                defaultValue={field.value}
-              >
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o status" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  <SelectItem value="em_negociacao">Em Negociação</SelectItem>
-                  <SelectItem value="aceita">Aceita</SelectItem>
-                  <SelectItem value="em_analise">Em Análise</SelectItem>
-                  <SelectItem value="recusada">Recusada</SelectItem>
-                </SelectContent>
-              </Select>
               <FormMessage />
             </FormItem>
           )}

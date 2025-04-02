@@ -264,34 +264,7 @@ export default function ClientForm({ client, onClose }: ClientFormProps) {
         
 
         
-        {!client && (
-          <FormField
-            control={form.control}
-            name="contact"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Estágio Inicial</FormLabel>
-                <Select 
-                  onValueChange={field.onChange} 
-                  defaultValue="lead"
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione o estágio" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="lead">Lead</SelectItem>
-                    <SelectItem value="qualificacao">Qualificação</SelectItem>
-                    <SelectItem value="negociacao">Negociação</SelectItem>
-                    <SelectItem value="fechamento">Fechamento</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        )}
+        {/* Campo de estágio inicial removido */}
         
         <div className="flex justify-end pt-4 space-x-2">
           <Button 
