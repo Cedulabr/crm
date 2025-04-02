@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
-import { insertClientSchema, type Client } from "@shared/schema";
+import { insertClientSchema, type Client, type Convenio } from "@shared/schema";
 import { z } from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -12,10 +12,14 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 
-// Extended schema with email validation
+// Extended schema with validations
 const clientFormSchema = insertClientSchema.extend({
   email: z.string().email("Email inválido").optional().or(z.literal("")),
-  phone: z.string().optional(),
+  name: z.string().min(3, "Nome precisa ter pelo menos 3 caracteres").nonempty("Nome é obrigatório"),
+  phone: z.string().nonempty("Telefone é obrigatório"),
+  cpf: z.string().nonempty("CPF é obrigatório"),
+  convenioId: z.string().nonempty("Convênio é obrigatório"),
+  birthDate: z.string().optional(),
 });
 
 type ClientFormData = z.infer<typeof clientFormSchema>;
@@ -28,12 +32,20 @@ interface ClientFormProps {
 export default function ClientForm({ client, onClose }: ClientFormProps) {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Fetch convenios for selection
+  const { data: convenios } = useQuery({
+    queryKey: ['/api/convenios'],
+  });
 
   // Define default values based on whether we're editing or creating
   const defaultValues: Partial<ClientFormData> = {
     name: client?.name || "",
     email: client?.email || "",
     phone: client?.phone || "",
+    cpf: client?.cpf || "",
+    birthDate: client?.birthDate || "",
+    convenioId: client?.convenioId ? client.convenioId.toString() : "",
     company: client?.company || "",
     contact: client?.contact || "",
   };
@@ -120,9 +132,79 @@ export default function ClientForm({ client, onClose }: ClientFormProps) {
           name="name"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Nome</FormLabel>
+              <FormLabel>Nome *</FormLabel>
               <FormControl>
                 <Input placeholder="Nome completo" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        
+        <FormField
+          control={form.control}
+          name="cpf"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>CPF *</FormLabel>
+              <FormControl>
+                <Input placeholder="000.000.000-00" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        
+        <FormField
+          control={form.control}
+          name="phone"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Telefone *</FormLabel>
+              <FormControl>
+                <Input placeholder="(00) 00000-0000" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        
+        <FormField
+          control={form.control}
+          name="convenioId"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Convênio *</FormLabel>
+              <Select 
+                onValueChange={field.onChange} 
+                defaultValue={field.value}
+              >
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o convênio" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {convenios?.map(convenio => (
+                    <SelectItem key={convenio.id} value={convenio.id.toString()}>
+                      {convenio.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        
+        <FormField
+          control={form.control}
+          name="birthDate"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Data de Nascimento</FormLabel>
+              <FormControl>
+                <Input type="date" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -137,20 +219,6 @@ export default function ClientForm({ client, onClose }: ClientFormProps) {
               <FormLabel>Email</FormLabel>
               <FormControl>
                 <Input placeholder="email@exemplo.com" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        
-        <FormField
-          control={form.control}
-          name="phone"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Telefone</FormLabel>
-              <FormControl>
-                <Input placeholder="(00) 00000-0000" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>

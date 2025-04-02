@@ -2,15 +2,11 @@ import { pgTable, text, serial, integer, boolean, timestamp, decimal } from "dri
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// Clients table
-export const clients = pgTable("clients", {
+// Convenios (agreements) table
+export const convenios = pgTable("convenios", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
-  contact: text("contact"),
-  email: text("email"),
-  phone: text("phone"),
-  company: text("company"),
-  createdAt: timestamp("created_at").defaultNow()
+  price: text("price")
 });
 
 // Products table
@@ -20,11 +16,18 @@ export const products = pgTable("products", {
   price: text("price")
 });
 
-// Convenios (agreements) table
-export const convenios = pgTable("convenios", {
+// Clients table
+export const clients = pgTable("clients", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
-  price: text("price")
+  cpf: text("cpf"),
+  phone: text("phone"),
+  convenioId: integer("convenio_id").references(() => convenios.id),
+  birthDate: text("birth_date"),
+  contact: text("contact"),
+  email: text("email"),
+  company: text("company"),
+  createdAt: timestamp("created_at").defaultNow()
 });
 
 // Banks table

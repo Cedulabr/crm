@@ -31,24 +31,34 @@ export interface Database {
         Row: {
           id: number
           name: string
+          cpf: string | null
+          phone: string | null
+          convenio_id: number | null
+          birth_date: string | null
           contact: string | null
           email: string | null
-          phone: string | null
           company: string | null
           created_at: string | null
         }
         Insert: {
           id?: number
           name: string
+          cpf?: string | null
+          phone?: string | null
+          convenio_id?: number | null
+          birth_date?: string | null
           contact?: string | null
           email?: string | null
-          phone?: string | null
           company?: string | null
           created_at?: string | null
         }
         Update: {
           id?: number
           name?: string
+          cpf?: string | null
+          phone?: string | null
+          convenio_id?: number | null
+          birth_date?: string | null
           contact?: string | null
           email?: string | null
           phone?: string | null

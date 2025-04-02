@@ -29,9 +29,12 @@ export class SupabaseStorage implements IStorage {
     return data.map(client => ({
       id: client.id,
       name: client.name,
+      cpf: client.cpf,
+      phone: client.phone,
+      convenioId: client.convenio_id,
+      birthDate: client.birth_date,
       contact: client.contact,
       email: client.email,
-      phone: client.phone,
       company: client.company,
       createdAt: client.created_at ? new Date(client.created_at) : null
     }));
@@ -52,9 +55,12 @@ export class SupabaseStorage implements IStorage {
     return {
       id: data.id,
       name: data.name,
+      cpf: data.cpf,
+      phone: data.phone,
+      convenioId: data.convenio_id,
+      birthDate: data.birth_date,
       contact: data.contact,
       email: data.email,
-      phone: data.phone,
       company: data.company,
       createdAt: data.created_at ? new Date(data.created_at) : null
     };
@@ -66,9 +72,12 @@ export class SupabaseStorage implements IStorage {
       .from('clients')
       .insert({
         name: client.name,
+        cpf: client.cpf,
+        phone: client.phone,
+        convenio_id: client.convenioId ? parseInt(client.convenioId.toString()) : null,
+        birth_date: client.birthDate,
         contact: client.contact,
         email: client.email,
-        phone: client.phone,
         company: client.company,
         created_at: new Date().toISOString()
       })
@@ -81,9 +90,12 @@ export class SupabaseStorage implements IStorage {
     const newClient: Client = {
       id: data.id,
       name: data.name,
+      cpf: data.cpf,
+      phone: data.phone,
+      convenioId: data.convenio_id,
+      birthDate: data.birth_date,
       contact: data.contact,
       email: data.email,
-      phone: data.phone,
       company: data.company,
       createdAt: data.created_at ? new Date(data.created_at) : null
     };
@@ -108,9 +120,12 @@ export class SupabaseStorage implements IStorage {
       .from('clients')
       .update({
         name: client.name,
+        cpf: client.cpf,
+        phone: client.phone,
+        convenio_id: client.convenioId ? parseInt(client.convenioId.toString()) : existingClient.convenioId,
+        birth_date: client.birthDate,
         contact: client.contact,
         email: client.email,
-        phone: client.phone,
         company: client.company
       })
       .eq('id', id)
@@ -122,9 +137,12 @@ export class SupabaseStorage implements IStorage {
     return {
       id: data.id,
       name: data.name,
+      cpf: data.cpf,
+      phone: data.phone,
+      convenioId: data.convenio_id,
+      birthDate: data.birth_date,
       contact: data.contact,
       email: data.email,
-      phone: data.phone,
       company: data.company,
       createdAt: data.created_at ? new Date(data.created_at) : null
     };
