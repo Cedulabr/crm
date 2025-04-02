@@ -5,6 +5,8 @@ import {
   banks, 
   proposals, 
   kanban,
+  users,
+  organizations,
   type Client, 
   type InsertClient,
   type Product,
@@ -18,7 +20,14 @@ import {
   type Kanban,
   type InsertKanban,
   type ClientWithKanban,
-  type ProposalWithDetails
+  type ProposalWithDetails,
+  type User,
+  type InsertUser,
+  type RegisterUser,
+  type Organization,
+  type InsertOrganization,
+  type UserWithOrganization,
+  type AuthData
 } from "@shared/schema";
 
 export interface IStorage {
@@ -29,6 +38,8 @@ export interface IStorage {
   updateClient(id: number, client: Partial<InsertClient>): Promise<Client | undefined>;
   deleteClient(id: number): Promise<boolean>;
   getClientsWithKanban(): Promise<ClientWithKanban[]>;
+  getClientsByCreator(creatorId: number): Promise<Client[]>; // Obter clientes por ID do agente criador
+  getClientsByOrganization(organizationId: number): Promise<Client[]>; // Obter clientes por ID da organização
 
   // Product operations
   getProducts(): Promise<Product[]>;
@@ -56,6 +67,8 @@ export interface IStorage {
   getProposalsByValue(minValue: number, maxValue?: number): Promise<Proposal[]>;
   getProposalsByStatus(status: string): Promise<Proposal[]>;
   getProposalsWithDetails(): Promise<ProposalWithDetails[]>;
+  getProposalsByCreator(creatorId: number): Promise<Proposal[]>; // Obter propostas por ID do agente criador
+  getProposalsByOrganization(organizationId: number): Promise<Proposal[]>; // Obter propostas por ID da organização
 
   // Kanban operations
   getKanbanEntries(): Promise<Kanban[]>;
@@ -64,6 +77,26 @@ export interface IStorage {
   createKanbanEntry(kanbanEntry: InsertKanban): Promise<Kanban>;
   updateKanbanEntry(id: number, kanbanEntry: Partial<InsertKanban>): Promise<Kanban | undefined>;
   updateClientKanbanColumn(clientId: number, column: string): Promise<Kanban | undefined>;
+  
+  // User operations
+  getUsers(): Promise<User[]>;
+  getUserById(id: number): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  createUser(user: RegisterUser): Promise<User>;
+  updateUser(id: number, user: Partial<InsertUser>): Promise<User | undefined>;
+  deleteUser(id: number): Promise<boolean>;
+  getUsersInOrganization(organizationId: number): Promise<User[]>;
+  
+  // Authentication
+  loginUser(email: string, password: string): Promise<AuthData | null>;
+  resetPassword(email: string): Promise<boolean>; // Gerar nova senha para usuário
+  
+  // Organization operations
+  getOrganizations(): Promise<Organization[]>;
+  getOrganizationById(id: number): Promise<Organization | undefined>;
+  createOrganization(organization: InsertOrganization): Promise<Organization>;
+  updateOrganization(id: number, organization: Partial<InsertOrganization>): Promise<Organization | undefined>;
+  deleteOrganization(id: number): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -73,6 +106,8 @@ export class MemStorage implements IStorage {
   private banks: Map<number, Bank>;
   private proposals: Map<number, Proposal>;
   private kanbanEntries: Map<number, Kanban>;
+  private users: Map<number, User>;
+  private organizations: Map<number, Organization>;
   
   private clientId: number;
   private productId: number;
@@ -80,6 +115,8 @@ export class MemStorage implements IStorage {
   private bankId: number;
   private proposalId: number;
   private kanbanId: number;
+  private userId: number;
+  private organizationId: number;
 
   constructor() {
     this.clients = new Map();
@@ -88,6 +125,8 @@ export class MemStorage implements IStorage {
     this.banks = new Map();
     this.proposals = new Map();
     this.kanbanEntries = new Map();
+    this.users = new Map();
+    this.organizations = new Map();
     
     this.clientId = 1;
     this.productId = 1;
@@ -95,6 +134,8 @@ export class MemStorage implements IStorage {
     this.bankId = 1;
     this.proposalId = 1;
     this.kanbanId = 1;
+    this.userId = 1;
+    this.organizationId = 1;
 
     // Initialize with sample data
     this.initializeSampleData();
@@ -167,6 +208,44 @@ export class MemStorage implements IStorage {
     ];
     
     banks.forEach(b => this.createBank(b));
+    
+    // Initialize Organizations
+    const organizations = [
+      { name: "Matriz", description: "Empresa principal" },
+      { name: "Filial 1", description: "Primeira filial" },
+      { name: "Filial 2", description: "Segunda filial" }
+    ];
+    
+    organizations.forEach(org => this.createOrganization(org));
+    
+    // Initialize Users (superadmin, gestor, agente)
+    const superadmin = {
+      name: "Administrador",
+      email: "admin@empresa.com",
+      password: "senha123",
+      role: "superadmin",
+      organizationId: 1
+    };
+    
+    const gestor = {
+      name: "Gestor",
+      email: "gestor@empresa.com",
+      password: "senha123",
+      role: "manager",
+      organizationId: 1
+    };
+    
+    const agente = {
+      name: "Agente",
+      email: "agente@empresa.com",
+      password: "senha123",
+      role: "agent",
+      organizationId: 1
+    };
+    
+    this.createUser(superadmin);
+    this.createUser(gestor);
+    this.createUser(agente);
   }
 
   // Client operations
@@ -449,6 +528,153 @@ export class MemStorage implements IStorage {
       entry => entry.column === column
     );
     return entriesInColumn.length + 1;
+  }
+  
+  // Métodos para lidar com clientes por criador e organização
+  async getClientsByCreator(creatorId: number): Promise<Client[]> {
+    return Array.from(this.clients.values()).filter(
+      client => client.createdById === creatorId
+    );
+  }
+  
+  async getClientsByOrganization(organizationId: number): Promise<Client[]> {
+    return Array.from(this.clients.values()).filter(
+      client => client.organizationId === organizationId
+    );
+  }
+  
+  // Métodos para lidar com propostas por criador e organização
+  async getProposalsByCreator(creatorId: number): Promise<Proposal[]> {
+    return Array.from(this.proposals.values()).filter(
+      proposal => proposal.createdById === creatorId
+    );
+  }
+  
+  async getProposalsByOrganization(organizationId: number): Promise<Proposal[]> {
+    return Array.from(this.proposals.values()).filter(
+      proposal => proposal.organizationId === organizationId
+    );
+  }
+  
+  // Métodos para lidar com usuários
+  async getUsers(): Promise<User[]> {
+    return Array.from(this.users.values());
+  }
+  
+  async getUserById(id: number): Promise<User | undefined> {
+    return this.users.get(id);
+  }
+  
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    return Array.from(this.users.values()).find(
+      user => user.email === email
+    );
+  }
+  
+  async createUser(user: RegisterUser): Promise<User> {
+    const id = this.userId++;
+    // Em um sistema real, a senha seria hasheada antes de ser armazenada
+    const { password, ...userWithoutPassword } = user;
+    const newUser: User = { 
+      ...userWithoutPassword, 
+      id, 
+      createdAt: new Date(), 
+      updatedAt: new Date() 
+    };
+    this.users.set(id, newUser);
+    return newUser;
+  }
+  
+  async updateUser(id: number, user: Partial<InsertUser>): Promise<User | undefined> {
+    const existingUser = this.users.get(id);
+    if (!existingUser) return undefined;
+    
+    const updatedUser = { 
+      ...existingUser, 
+      ...user, 
+      updatedAt: new Date() 
+    };
+    this.users.set(id, updatedUser);
+    return updatedUser;
+  }
+  
+  async deleteUser(id: number): Promise<boolean> {
+    return this.users.delete(id);
+  }
+  
+  async getUsersInOrganization(organizationId: number): Promise<User[]> {
+    return Array.from(this.users.values()).filter(
+      user => user.organizationId === organizationId
+    );
+  }
+  
+  // Métodos de autenticação
+  async loginUser(email: string, password: string): Promise<AuthData | null> {
+    // Em um sistema real, a senha seria hasheada e comparada com a senha hasheada armazenada
+    const user = await this.getUserByEmail(email);
+    
+    // Simulando verificação de senha
+    // Em um sistema real, usaríamos algo como bcrypt.compare(password, user.passwordHash)
+    if (!user) return null;
+    
+    // Em um sistema real, geraríamos um token JWT válido
+    const token = `token-${user.id}-${Date.now()}`;
+    
+    // Buscar a organização do usuário
+    const organization = await this.getOrganizationById(user.organizationId || 0);
+    
+    return {
+      token,
+      user: {
+        ...user,
+        organization
+      }
+    };
+  }
+  
+  async resetPassword(email: string): Promise<boolean> {
+    const user = await this.getUserByEmail(email);
+    if (!user) return false;
+    
+    // Em um sistema real, geraríamos uma nova senha aleatória e enviaríamos por email
+    // Aqui apenas simulamos o sucesso da operação
+    return true;
+  }
+  
+  // Métodos para lidar com organizações
+  async getOrganizations(): Promise<Organization[]> {
+    return Array.from(this.organizations.values());
+  }
+  
+  async getOrganizationById(id: number): Promise<Organization | undefined> {
+    return this.organizations.get(id);
+  }
+  
+  async createOrganization(organization: InsertOrganization): Promise<Organization> {
+    const id = this.organizationId++;
+    const newOrganization: Organization = { 
+      ...organization, 
+      id, 
+      createdAt: new Date()
+    };
+    this.organizations.set(id, newOrganization);
+    return newOrganization;
+  }
+  
+  async updateOrganization(id: number, organization: Partial<InsertOrganization>): Promise<Organization | undefined> {
+    const existingOrganization = this.organizations.get(id);
+    if (!existingOrganization) return undefined;
+    
+    const updatedOrganization = { 
+      ...existingOrganization, 
+      ...organization 
+    };
+    this.organizations.set(id, updatedOrganization);
+    return updatedOrganization;
+  }
+  
+  async deleteOrganization(id: number): Promise<boolean> {
+    return this.organizations.delete(id);
   }
 }
 

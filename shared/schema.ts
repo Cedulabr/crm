@@ -2,6 +2,24 @@ import { pgTable, text, serial, integer, boolean, timestamp, decimal } from "dri
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// User roles
+export enum UserRole {
+  AGENT = 'agent',
+  MANAGER = 'manager',
+  SUPERADMIN = 'superadmin'
+}
+
+// Users table
+export const users = pgTable("users", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  email: text("email").notNull().unique(),
+  // Note: Não armazenamos senhas diretamente, o Supabase fará isso por nós 
+  role: text("role").notNull().default(UserRole.AGENT),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow()
+});
+
 // Convenios (agreements) table
 export const convenios = pgTable("convenios", {
   id: serial("id").primaryKey(),
@@ -16,6 +34,13 @@ export const products = pgTable("products", {
   price: text("price")
 });
 
+// Organization table - Para agrupar usuários da mesma empresa/organização
+export const organizations = pgTable("organizations", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  createdAt: timestamp("created_at").defaultNow()
+});
+
 // Clients table
 export const clients = pgTable("clients", {
   id: serial("id").primaryKey(),
@@ -27,6 +52,8 @@ export const clients = pgTable("clients", {
   contact: text("contact"),
   email: text("email"),
   company: text("company"),
+  createdById: integer("created_by_id").references(() => users.id), // ID do usuário que criou o cliente
+  organizationId: integer("organization_id").references(() => organizations.id), // ID da organização do cliente
   createdAt: timestamp("created_at").defaultNow()
 });
 
@@ -47,6 +74,8 @@ export const proposals = pgTable("proposals", {
   value: text("value"),
   comments: text("comments"),
   status: text("status").notNull(), // 'em_negociacao', 'aceita', 'em_analise', 'recusada'
+  createdById: integer("created_by_id").references(() => users.id), // ID do usuário que criou a proposta
+  organizationId: integer("organization_id").references(() => organizations.id), // ID da organização da proposta
   createdAt: timestamp("created_at").defaultNow()
 });
 
@@ -65,6 +94,15 @@ export const insertConvenioSchema = createInsertSchema(convenios).omit({ id: tru
 export const insertBankSchema = createInsertSchema(banks).omit({ id: true });
 export const insertProposalSchema = createInsertSchema(proposals).omit({ id: true, createdAt: true });
 export const insertKanbanSchema = createInsertSchema(kanban).omit({ id: true });
+export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertOrganizationSchema = createInsertSchema(organizations).omit({ id: true, createdAt: true });
+
+// Schemas personalizados
+export const userPasswordSchema = z.object({
+  password: z.string().min(6, "A senha deve ter pelo menos 6 caracteres"),
+});
+
+export const registerUserSchema = insertUserSchema.merge(userPasswordSchema);
 
 // Select types
 export type Client = typeof clients.$inferSelect;
@@ -73,6 +111,8 @@ export type Convenio = typeof convenios.$inferSelect;
 export type Bank = typeof banks.$inferSelect;
 export type Proposal = typeof proposals.$inferSelect;
 export type Kanban = typeof kanban.$inferSelect;
+export type User = typeof users.$inferSelect;
+export type Organization = typeof organizations.$inferSelect;
 
 // Insert types
 export type InsertClient = z.infer<typeof insertClientSchema>;
@@ -81,6 +121,9 @@ export type InsertConvenio = z.infer<typeof insertConvenioSchema>;
 export type InsertBank = z.infer<typeof insertBankSchema>;
 export type InsertProposal = z.infer<typeof insertProposalSchema>;
 export type InsertKanban = z.infer<typeof insertKanbanSchema>;
+export type InsertUser = z.infer<typeof insertUserSchema>;
+export type RegisterUser = z.infer<typeof registerUserSchema>;
+export type InsertOrganization = z.infer<typeof insertOrganizationSchema>;
 
 // Extended types
 export type ClientWithKanban = Client & {
@@ -98,4 +141,13 @@ export type ProposalWithDetails = Proposal & {
   product?: Product;
   convenio?: Convenio;
   bank?: Bank;
+};
+
+export type UserWithOrganization = User & {
+  organization?: Organization;
+};
+
+export type AuthData = {
+  token: string;
+  user: UserWithOrganization;
 };

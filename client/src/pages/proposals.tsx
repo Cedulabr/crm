@@ -46,7 +46,7 @@ export default function Proposals() {
   // Delete proposal mutation
   const deleteProposalMutation = useMutation({
     mutationFn: async (id: number) => {
-      return apiRequest('DELETE', `/api/proposals/${id}`);
+      return apiRequest(`/api/proposals/${id}`, { method: 'DELETE' });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/proposals-with-details'] });

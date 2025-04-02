@@ -8,18 +8,29 @@ async function throwIfResNotOk(res: Response) {
 }
 
 export async function apiRequest(
-  method: string,
   url: string,
-  data?: unknown | undefined,
+  options: RequestInit = {}
 ): Promise<Response> {
+  // Adiciona o token de autenticação ao cabeçalho se disponível
+  const token = localStorage.getItem("token");
+  const headers = new Headers(options.headers || {});
+  
+  if (token) {
+    headers.append("Authorization", `Bearer ${token}`);
+  }
+  
+  if (options.body && !headers.has("Content-Type")) {
+    headers.append("Content-Type", "application/json");
+  }
+  
   const res = await fetch(url, {
-    method,
-    headers: data ? { "Content-Type": "application/json" } : {},
-    body: data ? JSON.stringify(data) : undefined,
+    ...options,
+    headers,
     credentials: "include",
   });
-
-  await throwIfResNotOk(res);
+  
+  // Não lançamos erro aqui para permitir o tratamento personalizado
+  // para situações de login, etc.
   return res;
 }
 
@@ -29,7 +40,16 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
+    // Adiciona o token de autenticação ao cabeçalho se disponível
+    const token = localStorage.getItem("token");
+    const headers: HeadersInit = {};
+    
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+    
     const res = await fetch(queryKey[0] as string, {
+      headers,
       credentials: "include",
     });
 
