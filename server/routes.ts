@@ -482,6 +482,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/dashboard/operator-activity', async (req, res) => {
+    try {
+      // Verificar se o usuário atual tem permissão (admin ou gestor)
+      // Em um sistema real, deveria verificar o token de autenticação aqui
+      
+      // Obter usuários, clientes, propostas e organizações
+      const users = await storage.getUsers();
+      const organizations = await storage.getOrganizations();
+      const clients = await storage.getClients();
+      const proposals = await storage.getProposals();
+      
+      // Mapear os dados para o formato esperado pelo frontend
+      const operatorActivity = users.map(user => {
+        // Contar clientes criados pelo usuário
+        const userClients = clients.filter(client => client.createdById === user.id);
+        
+        // Contar propostas criadas pelo usuário
+        const userProposals = proposals.filter(proposal => proposal.createdById === user.id);
+        
+        // Encontrar a organização do usuário
+        const organization = organizations.find(org => org.id === user.organizationId);
+        
+        // Encontrar a data da última atividade (cliente ou proposta)
+        const clientDates = userClients.map(c => c.createdAt ? new Date(c.createdAt).getTime() : 0);
+        const proposalDates = userProposals.map(p => p.createdAt ? new Date(p.createdAt).getTime() : 0);
+        const allDates = [...clientDates, ...proposalDates].filter(d => d > 0);
+        
+        const lastActivityTimestamp = allDates.length > 0 ? Math.max(...allDates) : null;
+        const lastActivity = lastActivityTimestamp ? new Date(lastActivityTimestamp).toISOString() : null;
+        
+        return {
+          userId: user.id,
+          userName: user.name,
+          userEmail: user.email,
+          userRole: user.role,
+          sector: user.sector || "",
+          organizationId: user.organizationId || 0,
+          organizationName: organization ? organization.name : "Sem organização",
+          clientsCount: userClients.length,
+          proposalsCount: userProposals.length,
+          lastActivity
+        };
+      });
+      
+      res.json(operatorActivity);
+    } catch (error) {
+      console.error("Erro ao obter atividade dos operadores:", error);
+      res.status(500).json({ error: "Erro ao obter atividade dos operadores" });
+    }
+  });
+
   // =================
   // User endpoints
   // =================

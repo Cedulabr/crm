@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import StatsCard from "@/components/dashboard/stats-card";
 import RecentActivityTable from "@/components/dashboard/recent-activity-table";
+import OperatorReport from "@/components/dashboard/operator-report";
 import { SalesByProductChart, ProposalsByStatusChart } from "@/components/dashboard/charts";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -207,6 +208,9 @@ export default function Dashboard() {
           )}
         </CardContent>
       </Card>
+      
+      {/* Relatório de Operadores - Visível apenas para gerentes e administradores */}
+      <OperatorReport />
     </section>
   );
 }

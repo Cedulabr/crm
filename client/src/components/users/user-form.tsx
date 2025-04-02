@@ -1,7 +1,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
-import { User } from "@shared/schema";
+import { User, Organization } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 
 // Form schema with validation
@@ -32,6 +32,7 @@ const userFormSchema = z.object({
     message: "Email inválido",
   }),
   role: z.string(),
+  sector: z.string().optional(),
   password: z.string().min(6, {
     message: "A senha deve ter pelo menos 6 caracteres",
   }).optional(),
@@ -51,6 +52,12 @@ export default function UserForm({ user, onClose }: UserFormProps) {
   // Get current user from localStorage
   const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
   const isSuperAdmin = currentUser?.role === "superadmin";
+  
+  // Fetch organizations
+  const { data: organizations, isLoading: isLoadingOrgs } = useQuery<Organization[]>({
+    queryKey: ['/api/organizations'],
+    enabled: isSuperAdmin, // Only load organizations for superadmin
+  });
 
   // Set up form with default values
   const form = useForm<z.infer<typeof userFormSchema>>({
@@ -64,6 +71,7 @@ export default function UserForm({ user, onClose }: UserFormProps) {
       name: user?.name || "",
       email: user?.email || "",
       role: user?.role || "agent", // Default to agent
+      sector: user?.sector || "",
       organizationId: user?.organizationId || (currentUser?.organizationId ? Number(currentUser.organizationId) : 1),
     },
   });
@@ -178,6 +186,63 @@ export default function UserForm({ user, onClose }: UserFormProps) {
             </FormItem>
           )}
         />
+
+        <FormField
+          control={form.control}
+          name="sector"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Setor</FormLabel>
+              <Select
+                onValueChange={field.onChange}
+                defaultValue={field.value}
+              >
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione um setor" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="Comercial">Comercial</SelectItem>
+                  <SelectItem value="Operacional">Operacional</SelectItem>
+                  <SelectItem value="Financeiro">Financeiro</SelectItem>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        {isSuperAdmin && (
+          <FormField
+            control={form.control}
+            name="organizationId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Empresa</FormLabel>
+                <Select
+                  onValueChange={(value) => field.onChange(Number(value))}
+                  value={field.value?.toString()}
+                  disabled={isLoadingOrgs}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione uma empresa" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {organizations?.map((org) => (
+                      <SelectItem key={org.id} value={org.id.toString()}>
+                        {org.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
 
         {!isEditing && (
           <FormField

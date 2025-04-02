@@ -16,6 +16,13 @@ export const organizations = pgTable("organizations", {
   createdAt: timestamp("created_at").defaultNow()
 });
 
+// User sectors enum
+export enum UserSector {
+  COMMERCIAL = 'Comercial',
+  OPERATIONAL = 'Operacional',
+  FINANCIAL = 'Financeiro'
+}
+
 // Users table
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -23,7 +30,9 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   // Note: Não armazenamos senhas diretamente, o Supabase fará isso por nós 
   role: text("role").notNull().default(UserRole.AGENT),
+  sector: text("sector"), // Setor: Comercial, Operacional, Financeiro
   organizationId: integer("organization_id").references(() => organizations.id), // ID da organização do usuário
+  password: text("password"), // Armazenado com hash
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow()
 });
