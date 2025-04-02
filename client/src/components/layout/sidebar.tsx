@@ -20,6 +20,12 @@ const mainNavItems: SidebarNavItem[] = [
     label: "Usuários",
     roles: ["superadmin", "manager"] // Apenas admins e gestores podem ver
   },
+  { 
+    href: "/organizations", 
+    icon: "business", 
+    label: "Empresas",
+    roles: ["superadmin"] // Apenas superadmin pode ver
+  },
 ];
 
 const quickFilterItems: SidebarNavItem[] = [

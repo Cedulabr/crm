@@ -8,8 +8,10 @@ async function throwIfResNotOk(res: Response) {
 }
 
 export async function apiRequest(
+  method: string,
   url: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  data?: any
 ): Promise<Response> {
   // Adiciona o token de autenticação ao cabeçalho se disponível
   const token = localStorage.getItem("token");
@@ -19,13 +21,20 @@ export async function apiRequest(
     headers.append("Authorization", `Bearer ${token}`);
   }
   
-  if (options.body && !headers.has("Content-Type")) {
+  // Prepara o corpo da requisição se houver dados
+  let body = options.body;
+  if (data && !body) {
+    headers.append("Content-Type", "application/json");
+    body = JSON.stringify(data);
+  } else if (options.body && !headers.has("Content-Type")) {
     headers.append("Content-Type", "application/json");
   }
   
   const res = await fetch(url, {
     ...options,
+    method,
     headers,
+    body,
     credentials: "include",
   });
   

@@ -80,15 +80,9 @@ export default function UserForm({ user, onClose }: UserFormProps) {
   const userMutation = useMutation({
     mutationFn: async (data: z.infer<typeof userFormSchema>) => {
       if (isEditing && user) {
-        return apiRequest(`/api/users/${user.id}`, {
-          method: "PATCH",
-          body: JSON.stringify(data),
-        });
+        return apiRequest("PATCH", `/api/users/${user.id}`, undefined, data);
       } else {
-        return apiRequest("/api/users", {
-          method: "POST",
-          body: JSON.stringify(data),
-        });
+        return apiRequest("POST", "/api/users", undefined, data);
       }
     },
     onSuccess: () => {

@@ -10,14 +10,29 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { type ProposalWithDetails } from "@shared/schema";
 
+// Interfaces para os tipos de dados do dashboard
+interface DashboardStats {
+  totalClients: number;
+  activeProposals: number;
+  conversionRate: number;
+  totalValue: number;
+}
+
+interface ProposalStatusCounts {
+  emNegociacao: number;
+  aceitas: number;
+  emAnalise: number;
+  recusadas: number;
+}
+
 export default function Dashboard() {
   // Fetch dashboard stats
-  const { data: statsData, isLoading: statsLoading } = useQuery({
+  const { data: statsData, isLoading: statsLoading } = useQuery<DashboardStats>({
     queryKey: ['/api/dashboard/stats'],
   });
 
   // Fetch proposals by status data for pie chart
-  const { data: proposalsByStatus, isLoading: statusLoading } = useQuery({
+  const { data: proposalsByStatus, isLoading: statusLoading } = useQuery<ProposalStatusCounts>({
     queryKey: ['/api/dashboard/proposals-by-status'],
   });
 
@@ -216,7 +231,7 @@ export default function Dashboard() {
 }
 
 // Helper function to calculate percentage
-function calculatePercentage(value: number = 0, data: any): number {
+function calculatePercentage(value: number = 0, data?: ProposalStatusCounts | null): number {
   if (!data) return 0;
   
   const total = (data.emNegociacao || 0) + 

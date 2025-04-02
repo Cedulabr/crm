@@ -13,6 +13,13 @@ export enum UserRole {
 export const organizations = pgTable("organizations", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
+  address: text("address"), // Endereço da empresa
+  phone: text("phone"), // Telefone de contato
+  cnpj: text("cnpj"), // CNPJ da empresa
+  email: text("email"), // Email de contato
+  website: text("website"), // Site da empresa
+  description: text("description"), // Descrição ou observações
+  logo: text("logo"), // URL da logo
   createdAt: timestamp("created_at").defaultNow()
 });
 

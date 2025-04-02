@@ -2,7 +2,15 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { SupabaseStorage } from "./storage-supabase";
 import { z } from "zod";
-import { insertClientSchema, insertProposalSchema, insertKanbanSchema, InsertClient, insertUserSchema, registerUserSchema } from "@shared/schema";
+import { 
+  insertClientSchema, 
+  insertProposalSchema, 
+  insertKanbanSchema, 
+  InsertClient, 
+  insertUserSchema, 
+  registerUserSchema,
+  insertOrganizationSchema
+} from "@shared/schema";
 
 // Verifique se estamos usando o Supabase ou MemStorage com base nas variáveis de ambiente
 // Se SUPABASE_URL e SUPABASE_KEY estiverem definidos, use o SupabaseStorage
@@ -530,6 +538,86 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Erro ao obter atividade dos operadores:", error);
       res.status(500).json({ error: "Erro ao obter atividade dos operadores" });
+    }
+  });
+
+  // =================
+  // Organization endpoints
+  // =================
+
+  // Listar todas as organizações
+  app.get('/api/organizations', async (req, res) => {
+    try {
+      const organizations = await storage.getOrganizations();
+      res.json(organizations);
+    } catch (error) {
+      res.status(500).json({ message: 'Erro ao buscar organizações' });
+    }
+  });
+
+  // Obter uma organização específica
+  app.get('/api/organizations/:id', async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const organization = await storage.getOrganizationById(id);
+      
+      if (!organization) {
+        return res.status(404).json({ message: 'Organização não encontrada' });
+      }
+      
+      res.json(organization);
+    } catch (error) {
+      res.status(500).json({ message: 'Erro ao buscar organização' });
+    }
+  });
+
+  // Criar uma nova organização
+  app.post('/api/organizations', async (req, res) => {
+    try {
+      const organizationData = insertOrganizationSchema.parse(req.body);
+      const organization = await storage.createOrganization(organizationData);
+      res.status(201).json(organization);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: 'Dados inválidos', errors: error.errors });
+      }
+      res.status(500).json({ message: 'Erro ao criar organização' });
+    }
+  });
+
+  // Atualizar uma organização existente
+  app.patch('/api/organizations/:id', async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const organizationData = insertOrganizationSchema.partial().parse(req.body);
+      const updatedOrganization = await storage.updateOrganization(id, organizationData);
+      
+      if (!updatedOrganization) {
+        return res.status(404).json({ message: 'Organização não encontrada' });
+      }
+      
+      res.json(updatedOrganization);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: 'Dados inválidos', errors: error.errors });
+      }
+      res.status(500).json({ message: 'Erro ao atualizar organização' });
+    }
+  });
+
+  // Excluir uma organização
+  app.delete('/api/organizations/:id', async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const deleted = await storage.deleteOrganization(id);
+      
+      if (!deleted) {
+        return res.status(404).json({ message: 'Organização não encontrada' });
+      }
+      
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: 'Erro ao excluir organização' });
     }
   });
 
