@@ -78,22 +78,33 @@ export class SupabaseStorage implements IStorage {
   }
 
   async createClient(client: InsertClient): Promise<Client> {
+    console.log('Tentando criar cliente:', { 
+      name: client.name, 
+      email: client.email,
+      createdById: client.createdById,
+      organizationId: client.organizationId
+    });
+    
     // Transformando de camelCase para snake_case
+    const clientData = {
+      name: client.name,
+      cpf: client.cpf,
+      phone: client.phone,
+      convenio_id: client.convenioId ? parseInt(client.convenioId.toString()) : null,
+      birth_date: client.birthDate,
+      contact: client.contact,
+      email: client.email,
+      company: client.company,
+      created_by_id: client.createdById,
+      organization_id: client.organizationId,
+      created_at: new Date().toISOString()
+    };
+    
+    console.log('Dados para inserção do cliente:', clientData);
+    
     const { data, error } = await supabase
       .from('clients')
-      .insert({
-        name: client.name,
-        cpf: client.cpf,
-        phone: client.phone,
-        convenio_id: client.convenioId ? parseInt(client.convenioId.toString()) : null,
-        birth_date: client.birthDate,
-        contact: client.contact,
-        email: client.email,
-        company: client.company,
-        created_by_id: client.createdById,
-        organization_id: client.organizationId,
-        created_at: new Date().toISOString()
-      })
+      .insert(clientData)
       .select()
       .single();
     
@@ -436,20 +447,32 @@ export class SupabaseStorage implements IStorage {
   }
 
   async createProposal(proposal: InsertProposal): Promise<Proposal> {
+    console.log('Tentando criar proposta:', { 
+      value: proposal.value, 
+      clientId: proposal.clientId,
+      status: proposal.status,
+      createdById: proposal.createdById,
+      organizationId: proposal.organizationId
+    });
+    
+    const proposalData = {
+      value: proposal.value,
+      client_id: proposal.clientId,
+      created_at: new Date().toISOString(),
+      status: proposal.status,
+      product_id: proposal.productId,
+      convenio_id: proposal.convenioId,
+      bank_id: proposal.bankId,
+      created_by_id: proposal.createdById,
+      organization_id: proposal.organizationId,
+      comments: proposal.comments
+    };
+    
+    console.log('Dados para inserção da proposta:', proposalData);
+    
     const { data, error } = await supabase
       .from('proposals')
-      .insert({
-        value: proposal.value,
-        client_id: proposal.clientId,
-        created_at: new Date().toISOString(),
-        status: proposal.status,
-        product_id: proposal.productId,
-        convenio_id: proposal.convenioId,
-        bank_id: proposal.bankId,
-        created_by_id: proposal.createdById,
-        organization_id: proposal.organizationId,
-        comments: proposal.comments
-      })
+      .insert(proposalData)
       .select()
       .single();
     
@@ -936,6 +959,8 @@ export class SupabaseStorage implements IStorage {
   }
   
   async getUserByEmail(email: string): Promise<User | undefined> {
+    console.log('Buscando usuário pelo email:', email);
+    
     const { data, error } = await supabase
       .from('users')
       .select('*')
@@ -943,9 +968,15 @@ export class SupabaseStorage implements IStorage {
       .single();
     
     if (error) {
-      if (error.code === 'PGRST116') return undefined;
+      if (error.code === 'PGRST116') {
+        console.log('Usuário não encontrado pelo email:', email);
+        return undefined;
+      }
+      console.error('Erro ao buscar usuário pelo email:', error);
       throw error;
     }
+    
+    console.log('Usuário encontrado pelo email:', data);
     
     return {
       id: data.id,
@@ -959,6 +990,8 @@ export class SupabaseStorage implements IStorage {
   }
   
   async createUser(user: RegisterUser): Promise<User> {
+    console.log('Tentando criar usuário:', { email: user.email, name: user.name, role: user.role });
+    
     // Primeiro, criar usuário no supabase auth
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: user.email,
@@ -972,7 +1005,12 @@ export class SupabaseStorage implements IStorage {
       }
     });
     
-    if (authError) throw authError;
+    if (authError) {
+      console.error('Erro ao criar usuário no Auth:', authError);
+      throw authError;
+    }
+    
+    console.log('Usuário criado no Auth com sucesso:', authData);
     
     // Preparar o objeto de inserção
     const insertData: any = {
@@ -987,6 +1025,8 @@ export class SupabaseStorage implements IStorage {
     if (user.organizationId !== undefined) {
       insertData.organization_id = user.organizationId;
     }
+    
+    console.log('Tentando inserir usuário na tabela users:', insertData);
     
     // Em seguida, criar o registro na tabela 'users'
     const { data, error } = await supabase
@@ -1080,15 +1120,27 @@ export class SupabaseStorage implements IStorage {
   }
   
   async loginUser(email: string, password: string): Promise<AuthData | null> {
+    console.log('Tentando fazer login para o usuário:', email);
+    
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password
     });
     
-    if (error) return null;
+    if (error) {
+      console.error('Erro ao autenticar com Supabase:', error);
+      return null;
+    }
+    
+    console.log('Usuário autenticado com sucesso no Supabase Auth, buscando dados do usuário.');
     
     const user = await this.getUserByEmail(email);
-    if (!user) return null;
+    if (!user) {
+      console.error('Usuário encontrado na autenticação, mas não encontrado na tabela de usuários:', email);
+      return null;
+    }
+    
+    console.log('Usuário encontrado na tabela de usuários:', user);
     
     // Buscar organização
     let organization = undefined;
