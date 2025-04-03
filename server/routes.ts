@@ -1,6 +1,5 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
-import { SupabaseStorage } from "./storage-supabase";
 import { z } from "zod";
 import { 
   insertClientSchema, 

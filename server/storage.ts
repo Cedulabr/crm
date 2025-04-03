@@ -873,27 +873,10 @@ export class MemStorage implements IStorage {
   }
 }
 
-// Import das implementações de armazenamento
+// Import da implementação de armazenamento com PostgreSQL
 import { databaseStorage } from './DatabaseStorage';
-import { supabaseStorage } from './storage-supabase';
 
-// Importando o client do Baserow
-import { baserowStorage } from './storage-baserow';
+// Usando a instância já criada do PostgreSQL Storage no DatabaseStorage.ts
+console.log('🔄 Usando DatabaseStorage para armazenamento de dados');
 
-// Escolhendo qual armazenamento usar baseado na configuração de ambiente
-// Para usar o Baserow, defina a variável de ambiente STORAGE_TYPE=baserow
-const storageType = process.env.STORAGE_TYPE || 'database';
-
-let selectedStorage;
-if (storageType === 'baserow') {
-  console.log('🔄 Usando BaserowStorage para armazenamento de dados');
-  selectedStorage = baserowStorage;
-} else if (storageType === 'supabase') {
-  console.log('🔄 Usando SupabaseStorage para armazenamento de dados');
-  selectedStorage = supabaseStorage;
-} else {
-  console.log('🔄 Usando DatabaseStorage para armazenamento de dados');
-  selectedStorage = databaseStorage;
-}
-
-export const storage = selectedStorage;
+export const storage = databaseStorage;
