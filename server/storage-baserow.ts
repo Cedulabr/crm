@@ -11,6 +11,9 @@ import {
 import { baserowClient } from './baserow-client';
 import { compareSync, hashSync } from 'bcrypt';
 
+// Type alias para dados do Baserow
+type BaserowRow = Record<string, any>;
+
 // Mapeamento de nomes de modelo para nomes de tabelas do Baserow
 const TABLE_MAPPINGS = {
   users: 'usuarios',
@@ -24,17 +27,119 @@ const TABLE_MAPPINGS = {
 };
 
 // Mapeamento dos IDs das tabelas no Baserow (precisa ser configurado)
-// Estes IDs devem ser obtidos do seu painel do Baserow
+// Este objeto deve ser atualizado com os IDs corretos das tabelas após executar:
+// tsx scripts/fetch-baserow-tables.ts <database_id>
 const TABLE_IDS: Record<string, number> = {
-  // Estes são exemplos e devem ser substituídos pelos IDs reais do seu Baserow
-  usuarios: 0,      // Substitua pelo ID real da tabela de usuários no Baserow
-  clientes: 0,      // Substitua pelo ID real da tabela de clientes no Baserow
-  produtos: 0,      // Substitua pelo ID real da tabela de produtos no Baserow
-  propostas: 0,     // Substitua pelo ID real da tabela de propostas no Baserow
-  convenios: 0,     // Substitua pelo ID real da tabela de convênios no Baserow
-  bancos: 0,        // Substitua pelo ID real da tabela de bancos no Baserow
-  kanban: 0,        // Substitua pelo ID real da tabela de kanban no Baserow
-  organizacoes: 0   // Substitua pelo ID real da tabela de organizações no Baserow
+  // Adicione aqui os IDs corretos quando estiverem disponíveis
+  // Os IDs abaixo são exemplos e não funcionarão até serem substituídos
+  usuarios: 123456,      // Substitua pelo ID real da tabela de usuários no Baserow
+  clientes: 123457,      // Substitua pelo ID real da tabela de clientes no Baserow
+  produtos: 123458,      // Substitua pelo ID real da tabela de produtos no Baserow
+  propostas: 123459,     // Substitua pelo ID real da tabela de propostas no Baserow
+  convenios: 123460,     // Substitua pelo ID real da tabela de convênios no Baserow
+  bancos: 123461,        // Substitua pelo ID real da tabela de bancos no Baserow
+  kanban: 123462,        // Substitua pelo ID real da tabela de kanban no Baserow
+  organizacoes: 123463   // Substitua pelo ID real da tabela de organizações no Baserow
+};
+
+// Mapeamento de nomes de campo do modelo para nomes de campo do Baserow
+const FIELD_MAPPINGS = {
+  // Modelo Client para tabela clientes
+  client: {
+    id: 'id',
+    name: 'nome',
+    cpf: 'cpf',
+    phone: 'telefone',
+    address: 'endereco',
+    email: 'email',
+    status: 'status',
+    createdAt: 'data_criacao',
+    creatorId: 'criador_id',
+    organizationId: 'organizacao_id',
+    notes: 'observacoes',
+    convenioId: 'convenio_id',
+    rg: 'rg',
+    birthDate: 'data_nascimento',
+    profession: 'profissao',
+    income: 'renda',
+    maritalStatus: 'estado_civil',
+    nationality: 'nacionalidade',
+    naturalness: 'naturalidade',
+    motherName: 'nome_mae',
+    fatherName: 'nome_pai',
+    bankAccount: 'conta_bancaria',
+    bankBranch: 'agencia_bancaria',
+    bankName: 'nome_banco',
+    pix: 'pix'
+  },
+  
+  // Modelo Product para tabela produtos
+  product: {
+    id: 'id',
+    name: 'nome',
+    description: 'descricao'
+  },
+  
+  // Modelo Convenio para tabela convenios
+  convenio: {
+    id: 'id',
+    name: 'nome',
+    description: 'descricao'
+  },
+  
+  // Modelo Bank para tabela bancos
+  bank: {
+    id: 'id',
+    name: 'nome',
+    description: 'descricao'
+  },
+  
+  // Modelo Proposal para tabela propostas
+  proposal: {
+    id: 'id',
+    clientId: 'cliente_id',
+    productId: 'produto_id',
+    bankId: 'banco_id',
+    value: 'valor',
+    installments: 'parcelas',
+    installmentValue: 'valor_parcela',
+    status: 'status',
+    createdAt: 'data_criacao',
+    creatorId: 'criador_id',
+    organizationId: 'organizacao_id',
+    notes: 'observacoes',
+    contractNumber: 'numero_contrato',
+    disbursementDate: 'data_liberacao'
+  },
+  
+  // Modelo Kanban para tabela kanban
+  kanban: {
+    id: 'id',
+    clientId: 'cliente_id',
+    column: 'coluna',
+    position: 'posicao'
+  },
+  
+  // Modelo User para tabela usuarios
+  user: {
+    id: 'id',
+    name: 'nome',
+    email: 'email',
+    password: 'senha',
+    role: 'papel',
+    status: 'status',
+    createdAt: 'data_criacao',
+    organizationId: 'organizacao_id'
+  },
+  
+  // Modelo Organization para tabela organizacoes
+  organization: {
+    id: 'id',
+    name: 'nome',
+    description: 'descricao',
+    status: 'status',
+    createdAt: 'data_criacao'
+  }
 };
 
 export class BaserowStorage implements IStorage {
@@ -538,62 +643,65 @@ export class BaserowStorage implements IStorage {
   }
 
   // Conversores de modelos do Baserow para modelos da aplicação
-  private mapBaserowToClient(row: BaserowRow): Client {
+  private mapBaserowToClient(row: any): Client {
+    const fields = FIELD_MAPPINGS.client;
     return {
       id: row.id,
-      name: row.nome || '',
-      cpf: row.cpf || '',
-      phone: row.telefone || '',
-      address: row.endereco || '',
-      email: row.email || '',
-      status: row.status || 'ativo',
-      createdAt: new Date(row.data_criacao || Date.now()),
-      creatorId: row.criador_id || 0,
-      organizationId: row.organizacao_id || 0,
-      notes: row.observacoes || '',
-      convenioId: row.convenio_id || 0,
-      rg: row.rg || '',
-      birthDate: row.data_nascimento ? new Date(row.data_nascimento) : new Date(),
-      profession: row.profissao || '',
-      income: row.renda || 0,
-      maritalStatus: row.estado_civil || '',
-      nationality: row.nacionalidade || 'Brasileiro(a)',
-      naturalness: row.naturalidade || '',
-      motherName: row.nome_mae || '',
-      fatherName: row.nome_pai || '',
-      bankAccount: row.conta_bancaria || '',
-      bankBranch: row.agencia_bancaria || '',
-      bankName: row.nome_banco || '',
-      pix: row.pix || ''
+      name: row[fields.name] || '',
+      cpf: row[fields.cpf] || '',
+      phone: row[fields.phone] || '',
+      address: row[fields.address] || '',
+      email: row[fields.email] || '',
+      status: row[fields.status] || 'ativo',
+      createdAt: new Date(row[fields.createdAt] || Date.now()),
+      creatorId: row[fields.creatorId] || 0,
+      organizationId: row[fields.organizationId] || 0,
+      notes: row[fields.notes] || '',
+      convenioId: row[fields.convenioId] || 0,
+      rg: row[fields.rg] || '',
+      birthDate: row[fields.birthDate] ? new Date(row[fields.birthDate]) : new Date(),
+      profession: row[fields.profession] || '',
+      income: row[fields.income] || 0,
+      maritalStatus: row[fields.maritalStatus] || '',
+      nationality: row[fields.nationality] || 'Brasileiro(a)',
+      naturalness: row[fields.naturalness] || '',
+      motherName: row[fields.motherName] || '',
+      fatherName: row[fields.fatherName] || '',
+      bankAccount: row[fields.bankAccount] || '',
+      bankBranch: row[fields.bankBranch] || '',
+      bankName: row[fields.bankName] || '',
+      pix: row[fields.pix] || ''
     };
   }
 
   private mapClientToBaserow(client: InsertClient, isUpdate: boolean = false): Record<string, any> {
-    const data: Record<string, any> = {
-      nome: client.name,
-      cpf: client.cpf,
-      telefone: client.phone,
-      endereco: client.address,
-      email: client.email,
-      status: client.status,
-      criador_id: client.creatorId,
-      organizacao_id: client.organizationId,
-      observacoes: client.notes,
-      convenio_id: client.convenioId,
-      rg: client.rg,
-      data_nascimento: client.birthDate?.toISOString(),
-      profissao: client.profession,
-      renda: client.income,
-      estado_civil: client.maritalStatus,
-      nacionalidade: client.nationality,
-      naturalidade: client.naturalness,
-      nome_mae: client.motherName,
-      nome_pai: client.fatherName,
-      conta_bancaria: client.bankAccount,
-      agencia_bancaria: client.bankBranch,
-      nome_banco: client.bankName,
-      pix: client.pix
-    };
+    const fields = FIELD_MAPPINGS.client;
+    const data: Record<string, any> = {};
+    
+    // Mapear os campos usando o FIELD_MAPPINGS
+    data[fields.name] = client.name;
+    data[fields.cpf] = client.cpf;
+    data[fields.phone] = client.phone;
+    data[fields.address] = client.address;
+    data[fields.email] = client.email;
+    data[fields.status] = client.status;
+    data[fields.creatorId] = client.creatorId;
+    data[fields.organizationId] = client.organizationId;
+    data[fields.notes] = client.notes;
+    data[fields.convenioId] = client.convenioId;
+    data[fields.rg] = client.rg;
+    data[fields.birthDate] = client.birthDate?.toISOString();
+    data[fields.profession] = client.profession;
+    data[fields.income] = client.income;
+    data[fields.maritalStatus] = client.maritalStatus;
+    data[fields.nationality] = client.nationality;
+    data[fields.naturalness] = client.naturalness;
+    data[fields.motherName] = client.motherName;
+    data[fields.fatherName] = client.fatherName;
+    data[fields.bankAccount] = client.bankAccount;
+    data[fields.bankBranch] = client.bankBranch;
+    data[fields.bankName] = client.bankName;
+    data[fields.pix] = client.pix;
 
     if (!isUpdate) {
       data.data_criacao = new Date().toISOString();
@@ -602,49 +710,61 @@ export class BaserowStorage implements IStorage {
     return data;
   }
 
-  private mapBaserowToProduct(row: BaserowRow): Product {
+  private mapBaserowToProduct(row: any): Product {
+    const fields = FIELD_MAPPINGS.product;
     return {
       id: row.id,
-      name: row.nome || '',
-      description: row.descricao || ''
+      name: row[fields.name] || '',
+      description: row[fields.description] || ''
     };
   }
 
   private mapProductToBaserow(product: InsertProduct): Record<string, any> {
-    return {
-      nome: product.name,
-      descricao: product.description
-    };
+    const fields = FIELD_MAPPINGS.product;
+    const data: Record<string, any> = {};
+    
+    data[fields.name] = product.name;
+    data[fields.description] = product.description;
+    
+    return data;
   }
 
-  private mapBaserowToConvenio(row: BaserowRow): Convenio {
+  private mapBaserowToConvenio(row: any): Convenio {
+    const fields = FIELD_MAPPINGS.convenio;
     return {
       id: row.id,
-      name: row.nome || '',
-      description: row.descricao || ''
+      name: row[fields.name] || '',
+      description: row[fields.description] || ''
     };
   }
 
   private mapConvenioToBaserow(convenio: InsertConvenio): Record<string, any> {
-    return {
-      nome: convenio.name,
-      descricao: convenio.description
-    };
+    const fields = FIELD_MAPPINGS.convenio;
+    const data: Record<string, any> = {};
+    
+    data[fields.name] = convenio.name;
+    data[fields.description] = convenio.description;
+    
+    return data;
   }
 
-  private mapBaserowToBank(row: BaserowRow): Bank {
+  private mapBaserowToBank(row: any): Bank {
+    const fields = FIELD_MAPPINGS.bank;
     return {
       id: row.id,
-      name: row.nome || '',
-      description: row.descricao || ''
+      name: row[fields.name] || '',
+      description: row[fields.description] || ''
     };
   }
 
   private mapBankToBaserow(bank: InsertBank): Record<string, any> {
-    return {
-      nome: bank.name,
-      descricao: bank.description
-    };
+    const fields = FIELD_MAPPINGS.bank;
+    const data: Record<string, any> = {};
+    
+    data[fields.name] = bank.name;
+    data[fields.description] = bank.description;
+    
+    return data;
   }
 
   private mapBaserowToProposal(row: BaserowRow): Proposal {
