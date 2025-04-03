@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, decimal } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, decimal, json, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -168,3 +168,89 @@ export type AuthData = {
   token: string;
   user: UserWithOrganization;
 };
+
+// Tipos de campos de formulário
+export enum FormFieldType {
+  TEXT = 'text',
+  NUMBER = 'number',
+  EMAIL = 'email',
+  PHONE = 'phone',
+  DATE = 'date',
+  SELECT = 'select',
+  CHECKBOX = 'checkbox',
+  RADIO = 'radio',
+  TEXTAREA = 'textarea',
+  CPF = 'cpf',
+  CNPJ = 'cnpj',
+  CURRENCY = 'currency'
+}
+
+// Tabela de modelos de formulários
+export const formTemplates = pgTable("form_templates", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  kanbanColumn: text("kanban_column").notNull().default("lead"), // Coluna do kanban onde novos leads serão colocados
+  fields: jsonb("fields").notNull(), // Array de campos do formulário
+  active: boolean("active").notNull().default(true),
+  createdById: integer("created_by_id").references(() => users.id),
+  organizationId: integer("organization_id").references(() => organizations.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow()
+});
+
+// Tabela de submissões de formulários
+export const formSubmissions = pgTable("form_submissions", {
+  id: serial("id").primaryKey(),
+  formTemplateId: integer("form_template_id").references(() => formTemplates.id),
+  data: jsonb("data").notNull(), // Dados submetidos no formulário
+  clientId: integer("client_id").references(() => clients.id), // Cliente criado a partir desta submissão
+  status: text("status").notNull().default("novo"), // 'novo', 'processado', 'rejeitado'
+  processedById: integer("processed_by_id").references(() => users.id), // Usuário que processou a submissão
+  organizationId: integer("organization_id").references(() => organizations.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow()
+});
+
+// Schema para inserção de formulários
+export const insertFormTemplateSchema = createInsertSchema(formTemplates).omit({ 
+  id: true, 
+  createdAt: true, 
+  updatedAt: true 
+}).extend({
+  fields: z.array(z.object({
+    id: z.string(),
+    name: z.string(),
+    label: z.string(),
+    type: z.nativeEnum(FormFieldType),
+    required: z.boolean().default(false),
+    options: z.array(z.object({
+      label: z.string(),
+      value: z.string()
+    })).optional(),
+    defaultValue: z.union([z.string(), z.number(), z.boolean(), z.null()]).optional(),
+    placeholder: z.string().optional(),
+    helpText: z.string().optional(),
+    validation: z.object({
+      minLength: z.number().optional(),
+      maxLength: z.number().optional(),
+      pattern: z.string().optional(),
+      min: z.number().optional(),
+      max: z.number().optional()
+    }).optional()
+  }))
+});
+
+export const insertFormSubmissionSchema = createInsertSchema(formSubmissions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  clientId: true,
+  processedById: true
+});
+
+// Tipos para formulários
+export type FormTemplate = typeof formTemplates.$inferSelect;
+export type FormSubmission = typeof formSubmissions.$inferSelect;
+export type InsertFormTemplate = z.infer<typeof insertFormTemplateSchema>;
+export type InsertFormSubmission = z.infer<typeof insertFormSubmissionSchema>;

@@ -21,7 +21,12 @@ import {
   ClientWithKanban,
   ProposalWithDetails,
   UserWithOrganization,
-  AuthData
+  AuthData,
+  FormTemplate,
+  InsertFormTemplate,
+  FormSubmission,
+  InsertFormSubmission,
+  FormFieldType
 } from '@shared/schema';
 
 export class SupabaseStorage implements IStorage {
@@ -1318,6 +1323,70 @@ export class SupabaseStorage implements IStorage {
     if (error) throw error;
     
     return true;
+  }
+
+  // ==================
+  // Form Template methods
+  // ==================
+  
+  async getFormTemplates(): Promise<FormTemplate[]> {
+    throw new Error("Método getFormTemplates não implementado em SupabaseStorage");
+  }
+
+  async getFormTemplate(id: number): Promise<FormTemplate | undefined> {
+    throw new Error("Método getFormTemplate não implementado em SupabaseStorage");
+  }
+
+  async createFormTemplate(template: InsertFormTemplate): Promise<FormTemplate> {
+    throw new Error("Método createFormTemplate não implementado em SupabaseStorage");
+  }
+
+  async updateFormTemplate(id: number, template: Partial<InsertFormTemplate>): Promise<FormTemplate | undefined> {
+    throw new Error("Método updateFormTemplate não implementado em SupabaseStorage");
+  }
+
+  async deleteFormTemplate(id: number): Promise<boolean> {
+    throw new Error("Método deleteFormTemplate não implementado em SupabaseStorage");
+  }
+
+  async getFormTemplatesByOrganization(organizationId: number): Promise<FormTemplate[]> {
+    throw new Error("Método getFormTemplatesByOrganization não implementado em SupabaseStorage");
+  }
+  
+  // ==================
+  // Form Submission methods
+  // ==================
+  
+  async getFormSubmissions(): Promise<FormSubmission[]> {
+    throw new Error("Método getFormSubmissions não implementado em SupabaseStorage");
+  }
+
+  async getFormSubmission(id: number): Promise<FormSubmission | undefined> {
+    throw new Error("Método getFormSubmission não implementado em SupabaseStorage");
+  }
+
+  async createFormSubmission(submission: InsertFormSubmission): Promise<FormSubmission> {
+    throw new Error("Método createFormSubmission não implementado em SupabaseStorage");
+  }
+
+  async updateFormSubmissionStatus(id: number, status: string, processedById?: number): Promise<FormSubmission | undefined> {
+    throw new Error("Método updateFormSubmissionStatus não implementado em SupabaseStorage");
+  }
+
+  async processFormSubmission(id: number, processedById: number): Promise<{client: Client, submission: FormSubmission} | undefined> {
+    throw new Error("Método processFormSubmission não implementado em SupabaseStorage");
+  }
+
+  async getFormSubmissionsByTemplate(templateId: number): Promise<FormSubmission[]> {
+    throw new Error("Método getFormSubmissionsByTemplate não implementado em SupabaseStorage");
+  }
+
+  async getFormSubmissionsByStatus(status: string): Promise<FormSubmission[]> {
+    throw new Error("Método getFormSubmissionsByStatus não implementado em SupabaseStorage");
+  }
+
+  async getFormSubmissionsByOrganization(organizationId: number): Promise<FormSubmission[]> {
+    throw new Error("Método getFormSubmissionsByOrganization não implementado em SupabaseStorage");
   }
 }
 

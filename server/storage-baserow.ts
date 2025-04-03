@@ -6,7 +6,8 @@ import {
   User, InsertUser, Client, InsertClient, Product, InsertProduct,
   Proposal, InsertProposal, Convenio, InsertConvenio, Bank, InsertBank,
   Kanban, InsertKanban, Organization, InsertOrganization,
-  ClientWithKanban, ProposalWithDetails, RegisterUser, AuthData
+  ClientWithKanban, ProposalWithDetails, RegisterUser, AuthData,
+  FormTemplate, InsertFormTemplate, FormSubmission, InsertFormSubmission, FormFieldType
 } from '@shared/schema';
 import { baserowClient } from './baserow-client';
 import { compareSync, hashSync } from 'bcrypt';
@@ -878,6 +879,70 @@ export class BaserowStorage implements IStorage {
     }
 
     return data;
+  }
+
+  // ==================
+  // Form Template methods
+  // ==================
+  
+  async getFormTemplates(): Promise<FormTemplate[]> {
+    throw new Error("Método getFormTemplates não implementado em BaserowStorage");
+  }
+
+  async getFormTemplate(id: number): Promise<FormTemplate | undefined> {
+    throw new Error("Método getFormTemplate não implementado em BaserowStorage");
+  }
+
+  async createFormTemplate(template: InsertFormTemplate): Promise<FormTemplate> {
+    throw new Error("Método createFormTemplate não implementado em BaserowStorage");
+  }
+
+  async updateFormTemplate(id: number, template: Partial<InsertFormTemplate>): Promise<FormTemplate | undefined> {
+    throw new Error("Método updateFormTemplate não implementado em BaserowStorage");
+  }
+
+  async deleteFormTemplate(id: number): Promise<boolean> {
+    throw new Error("Método deleteFormTemplate não implementado em BaserowStorage");
+  }
+
+  async getFormTemplatesByOrganization(organizationId: number): Promise<FormTemplate[]> {
+    throw new Error("Método getFormTemplatesByOrganization não implementado em BaserowStorage");
+  }
+  
+  // ==================
+  // Form Submission methods
+  // ==================
+  
+  async getFormSubmissions(): Promise<FormSubmission[]> {
+    throw new Error("Método getFormSubmissions não implementado em BaserowStorage");
+  }
+
+  async getFormSubmission(id: number): Promise<FormSubmission | undefined> {
+    throw new Error("Método getFormSubmission não implementado em BaserowStorage");
+  }
+
+  async createFormSubmission(submission: InsertFormSubmission): Promise<FormSubmission> {
+    throw new Error("Método createFormSubmission não implementado em BaserowStorage");
+  }
+
+  async updateFormSubmissionStatus(id: number, status: string, processedById?: number): Promise<FormSubmission | undefined> {
+    throw new Error("Método updateFormSubmissionStatus não implementado em BaserowStorage");
+  }
+
+  async processFormSubmission(id: number, processedById: number): Promise<{client: Client, submission: FormSubmission} | undefined> {
+    throw new Error("Método processFormSubmission não implementado em BaserowStorage");
+  }
+
+  async getFormSubmissionsByTemplate(templateId: number): Promise<FormSubmission[]> {
+    throw new Error("Método getFormSubmissionsByTemplate não implementado em BaserowStorage");
+  }
+
+  async getFormSubmissionsByStatus(status: string): Promise<FormSubmission[]> {
+    throw new Error("Método getFormSubmissionsByStatus não implementado em BaserowStorage");
+  }
+
+  async getFormSubmissionsByOrganization(organizationId: number): Promise<FormSubmission[]> {
+    throw new Error("Método getFormSubmissionsByOrganization não implementado em BaserowStorage");
   }
 }
 

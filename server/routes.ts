@@ -10,6 +10,8 @@ import {
   insertUserSchema, 
   registerUserSchema,
   insertOrganizationSchema,
+  insertFormTemplateSchema,
+  insertFormSubmissionSchema,
   UserRole
 } from "@shared/schema";
 
@@ -1276,6 +1278,311 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Erro no login:', error);
       res.status(500).json({ message: 'Error during login' });
+    }
+  });
+
+  // =================
+  // Form Template endpoints
+  // =================
+  
+  app.get('/api/form-templates', requireAuth, async (req, res) => {
+    try {
+      let templates = [];
+      
+      // Aplicar controle de acesso baseado no papel do usuário
+      if (!req.user) {
+        return res.status(401).json({ message: 'Authentication required' });
+      }
+      
+      if (req.user.role === UserRole.AGENT || req.user.role === UserRole.MANAGER) {
+        // Agentes e gestores veem apenas templates de sua organização
+        templates = await storage.getFormTemplatesByOrganization(req.user.organizationId || 0);
+      } else {
+        // Superadmins veem todos os templates
+        templates = await storage.getFormTemplates();
+      }
+      
+      res.json(templates);
+    } catch (error) {
+      console.error('Erro ao buscar templates de formulário:', error);
+      res.status(500).json({ message: 'Error fetching form templates' });
+    }
+  });
+  
+  app.get('/api/form-templates/:id', async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const template = await storage.getFormTemplate(id);
+      
+      if (!template) {
+        return res.status(404).json({ message: 'Form template not found' });
+      }
+      
+      // Para formulários públicos, não precisamos verificar autenticação
+      // Apenas verificamos se o formulário está ativo
+      if (!template.active && req.headers.authorization) {
+        // Se o formulário não está ativo e é uma requisição autenticada
+        // Verificar se o usuário tem permissão para ver o formulário
+        if (!req.user) {
+          return res.status(401).json({ message: 'Authentication required' });
+        }
+        
+        if (req.user.role !== UserRole.SUPERADMIN && 
+            template.organizationId !== req.user.organizationId) {
+          return res.status(403).json({ message: 'You do not have permission to view this form template' });
+        }
+      } else if (!template.active) {
+        // Se o formulário não estiver ativo e for uma requisição não autenticada
+        return res.status(404).json({ message: 'Form template not found or inactive' });
+      }
+      
+      res.json(template);
+    } catch (error) {
+      console.error('Erro ao buscar template de formulário:', error);
+      res.status(500).json({ message: 'Error fetching form template' });
+    }
+  });
+  
+  app.post('/api/form-templates', requireAuth, async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: 'Authentication required' });
+      }
+      
+      // Adicionar organizationId do usuário autenticado
+      const data = {
+        ...req.body,
+        organizationId: req.body.organizationId || req.user.organizationId || 1,
+        createdById: req.user.id
+      };
+      
+      const templateData = insertFormTemplateSchema.parse(data);
+      const template = await storage.createFormTemplate(templateData);
+      res.status(201).json(template);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: 'Invalid form template data', errors: error.errors });
+      }
+      console.error('Erro ao criar template de formulário:', error);
+      res.status(500).json({ message: 'Error creating form template' });
+    }
+  });
+  
+  app.patch('/api/form-templates/:id', requireAuth, async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: 'Authentication required' });
+      }
+      
+      const id = parseInt(req.params.id);
+      
+      // Verificar se o template existe
+      const template = await storage.getFormTemplate(id);
+      if (!template) {
+        return res.status(404).json({ message: 'Form template not found' });
+      }
+      
+      // Verificar permissões baseadas no papel do usuário
+      if (req.user.role !== UserRole.SUPERADMIN && 
+          template.organizationId !== req.user.organizationId) {
+        return res.status(403).json({ 
+          message: 'You do not have permission to update this form template' 
+        });
+      }
+      
+      const templateData = insertFormTemplateSchema.partial().parse(req.body);
+      const updatedTemplate = await storage.updateFormTemplate(id, templateData);
+      
+      res.json(updatedTemplate);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: 'Invalid form template data', errors: error.errors });
+      }
+      console.error('Erro ao atualizar template de formulário:', error);
+      res.status(500).json({ message: 'Error updating form template' });
+    }
+  });
+  
+  app.delete('/api/form-templates/:id', requireAuth, async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: 'Authentication required' });
+      }
+      
+      const id = parseInt(req.params.id);
+      
+      // Verificar se o template existe
+      const template = await storage.getFormTemplate(id);
+      if (!template) {
+        return res.status(404).json({ message: 'Form template not found' });
+      }
+      
+      // Verificar permissões baseadas no papel do usuário
+      if (req.user.role !== UserRole.SUPERADMIN && 
+          template.organizationId !== req.user.organizationId) {
+        return res.status(403).json({ 
+          message: 'You do not have permission to delete this form template' 
+        });
+      }
+      
+      await storage.deleteFormTemplate(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error('Erro ao excluir template de formulário:', error);
+      res.status(500).json({ message: 'Error deleting form template' });
+    }
+  });
+  
+  // =================
+  // Form Submission endpoints
+  // =================
+  
+  app.get('/api/form-submissions', requireAuth, async (req, res) => {
+    try {
+      let submissions = [];
+      
+      // Aplicar controle de acesso baseado no papel do usuário
+      if (!req.user) {
+        return res.status(401).json({ message: 'Authentication required' });
+      }
+      
+      if (req.user.role === UserRole.AGENT || req.user.role === UserRole.MANAGER) {
+        // Agentes e gestores veem apenas submissões de sua organização
+        submissions = await storage.getFormSubmissionsByOrganization(req.user.organizationId || 0);
+      } else {
+        // Superadmins veem todas as submissões
+        submissions = await storage.getFormSubmissions();
+      }
+      
+      res.json(submissions);
+    } catch (error) {
+      console.error('Erro ao buscar submissões de formulário:', error);
+      res.status(500).json({ message: 'Error fetching form submissions' });
+    }
+  });
+  
+  app.get('/api/form-submissions/:id', requireAuth, async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: 'Authentication required' });
+      }
+      
+      const id = parseInt(req.params.id);
+      const submission = await storage.getFormSubmission(id);
+      
+      if (!submission) {
+        return res.status(404).json({ message: 'Form submission not found' });
+      }
+      
+      // Verificar permissões
+      // Primeiro, obter o template para verificar a organização
+      const template = await storage.getFormTemplate(submission.formTemplateId || 0);
+      
+      if (!template) {
+        return res.status(404).json({ message: 'Associated form template not found' });
+      }
+      
+      // Verificar se o usuário tem permissão para ver a submissão
+      if (req.user.role !== UserRole.SUPERADMIN && 
+          template.organizationId !== req.user.organizationId) {
+        return res.status(403).json({ 
+          message: 'You do not have permission to view this form submission' 
+        });
+      }
+      
+      res.json(submission);
+    } catch (error) {
+      console.error('Erro ao buscar submissão de formulário:', error);
+      res.status(500).json({ message: 'Error fetching form submission' });
+    }
+  });
+  
+  // Esta rota não requer autenticação para permitir a submissão pública de formulários
+  app.post('/api/form-submissions', async (req, res) => {
+    try {
+      const submissionData = req.body;
+      
+      // Validar se o formTemplateId é válido
+      if (!submissionData.formTemplateId) {
+        return res.status(400).json({ message: 'Form template ID is required' });
+      }
+      
+      // Verificar se o template existe e está ativo
+      const template = await storage.getFormTemplate(submissionData.formTemplateId);
+      
+      if (!template) {
+        return res.status(404).json({ message: 'Form template not found' });
+      }
+      
+      if (!template.active) {
+        return res.status(400).json({ message: 'This form is no longer accepting submissions' });
+      }
+      
+      // Criar a submissão com o ID da organização do template
+      const data = {
+        ...submissionData,
+        organizationId: template.organizationId
+      };
+      
+      const validData = insertFormSubmissionSchema.parse(data);
+      const submission = await storage.createFormSubmission(validData);
+      
+      res.status(201).json(submission);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: 'Invalid form submission data', errors: error.errors });
+      }
+      console.error('Erro ao criar submissão de formulário:', error);
+      res.status(500).json({ message: 'Error creating form submission' });
+    }
+  });
+  
+  // Rota para processar uma submissão (criar cliente a partir dela)
+  app.post('/api/form-submissions/:id/process', requireAuth, async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: 'Authentication required' });
+      }
+      
+      const id = parseInt(req.params.id);
+      
+      // Verificar se a submissão existe
+      const submission = await storage.getFormSubmission(id);
+      
+      if (!submission) {
+        return res.status(404).json({ message: 'Form submission not found' });
+      }
+      
+      // Verificar se a submissão já foi processada
+      if (submission.status === 'processado') {
+        return res.status(400).json({ message: 'This submission has already been processed' });
+      }
+      
+      // Verificar permissões com base no template associado
+      const template = await storage.getFormTemplate(submission.formTemplateId || 0);
+      
+      if (!template) {
+        return res.status(404).json({ message: 'Associated form template not found' });
+      }
+      
+      if (req.user.role !== UserRole.SUPERADMIN && 
+          template.organizationId !== req.user.organizationId) {
+        return res.status(403).json({ 
+          message: 'You do not have permission to process this form submission' 
+        });
+      }
+      
+      // Processar a submissão (criar cliente)
+      const result = await storage.processFormSubmission(id, req.user.id);
+      
+      if (!result) {
+        return res.status(500).json({ message: 'Failed to process submission' });
+      }
+      
+      res.json(result);
+    } catch (error) {
+      console.error('Erro ao processar submissão de formulário:', error);
+      res.status(500).json({ message: 'Error processing form submission' });
     }
   });
 

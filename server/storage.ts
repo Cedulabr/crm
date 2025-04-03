@@ -7,6 +7,8 @@ import {
   kanban,
   users,
   organizations,
+  formTemplates,
+  formSubmissions,
   type Client, 
   type InsertClient,
   type Product,
@@ -27,7 +29,11 @@ import {
   type Organization,
   type InsertOrganization,
   type UserWithOrganization,
-  type AuthData
+  type AuthData,
+  type FormTemplate,
+  type InsertFormTemplate,
+  type FormSubmission,
+  type InsertFormSubmission
 } from "@shared/schema";
 
 export interface IStorage {
@@ -97,6 +103,24 @@ export interface IStorage {
   createOrganization(organization: InsertOrganization): Promise<Organization>;
   updateOrganization(id: number, organization: Partial<InsertOrganization>): Promise<Organization | undefined>;
   deleteOrganization(id: number): Promise<boolean>;
+  
+  // Form Template operations
+  getFormTemplates(): Promise<FormTemplate[]>;
+  getFormTemplate(id: number): Promise<FormTemplate | undefined>;
+  createFormTemplate(template: InsertFormTemplate): Promise<FormTemplate>;
+  updateFormTemplate(id: number, template: Partial<InsertFormTemplate>): Promise<FormTemplate | undefined>;
+  deleteFormTemplate(id: number): Promise<boolean>;
+  getFormTemplatesByOrganization(organizationId: number): Promise<FormTemplate[]>;
+  
+  // Form Submission operations
+  getFormSubmissions(): Promise<FormSubmission[]>;
+  getFormSubmission(id: number): Promise<FormSubmission | undefined>;
+  createFormSubmission(submission: InsertFormSubmission): Promise<FormSubmission>;
+  updateFormSubmissionStatus(id: number, status: string, processedById?: number): Promise<FormSubmission | undefined>; 
+  processFormSubmission(id: number, processedById: number): Promise<{client: Client, submission: FormSubmission} | undefined>;
+  getFormSubmissionsByTemplate(templateId: number): Promise<FormSubmission[]>;
+  getFormSubmissionsByStatus(status: string): Promise<FormSubmission[]>;
+  getFormSubmissionsByOrganization(organizationId: number): Promise<FormSubmission[]>;
 }
 
 export class MemStorage implements IStorage {
@@ -108,6 +132,8 @@ export class MemStorage implements IStorage {
   private kanbanEntries: Map<number, Kanban>;
   private users: Map<number, User>;
   private organizations: Map<number, Organization>;
+  private formTemplates: Map<number, FormTemplate>;
+  private formSubmissions: Map<number, FormSubmission>;
   
   private clientId: number;
   private productId: number;
@@ -117,6 +143,8 @@ export class MemStorage implements IStorage {
   private kanbanId: number;
   private userId: number;
   private organizationId: number;
+  private formTemplateId: number;
+  private formSubmissionId: number;
 
   constructor() {
     this.clients = new Map();
@@ -127,6 +155,8 @@ export class MemStorage implements IStorage {
     this.kanbanEntries = new Map();
     this.users = new Map();
     this.organizations = new Map();
+    this.formTemplates = new Map();
+    this.formSubmissions = new Map();
     
     this.clientId = 1;
     this.productId = 1;
@@ -136,6 +166,8 @@ export class MemStorage implements IStorage {
     this.kanbanId = 1;
     this.userId = 1;
     this.organizationId = 1;
+    this.formTemplateId = 1;
+    this.formSubmissionId = 1;
 
     // Initialize with sample data
     this.initializeSampleData();
@@ -675,6 +707,169 @@ export class MemStorage implements IStorage {
   
   async deleteOrganization(id: number): Promise<boolean> {
     return this.organizations.delete(id);
+  }
+  
+  // Form Template operations
+  async getFormTemplates(): Promise<FormTemplate[]> {
+    return Array.from(this.formTemplates.values());
+  }
+  
+  async getFormTemplate(id: number): Promise<FormTemplate | undefined> {
+    return this.formTemplates.get(id);
+  }
+  
+  async createFormTemplate(template: InsertFormTemplate): Promise<FormTemplate> {
+    const id = this.formTemplateId++;
+    const newTemplate: FormTemplate = {
+      ...template,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      active: template.active ?? true
+    };
+    this.formTemplates.set(id, newTemplate);
+    return newTemplate;
+  }
+  
+  async updateFormTemplate(id: number, template: Partial<InsertFormTemplate>): Promise<FormTemplate | undefined> {
+    const existingTemplate = this.formTemplates.get(id);
+    if (!existingTemplate) return undefined;
+    
+    const updatedTemplate = {
+      ...existingTemplate,
+      ...template,
+      updatedAt: new Date()
+    };
+    this.formTemplates.set(id, updatedTemplate);
+    return updatedTemplate;
+  }
+  
+  async deleteFormTemplate(id: number): Promise<boolean> {
+    // Também excluir todas as submissões relacionadas a este template
+    const submissions = await this.getFormSubmissionsByTemplate(id);
+    submissions.forEach(submission => {
+      this.formSubmissions.delete(submission.id);
+    });
+    
+    return this.formTemplates.delete(id);
+  }
+  
+  async getFormTemplatesByOrganization(organizationId: number): Promise<FormTemplate[]> {
+    return Array.from(this.formTemplates.values()).filter(
+      template => template.organizationId === organizationId
+    );
+  }
+  
+  // Form Submission operations
+  async getFormSubmissions(): Promise<FormSubmission[]> {
+    return Array.from(this.formSubmissions.values());
+  }
+  
+  async getFormSubmission(id: number): Promise<FormSubmission | undefined> {
+    return this.formSubmissions.get(id);
+  }
+  
+  async createFormSubmission(submission: InsertFormSubmission): Promise<FormSubmission> {
+    const id = this.formSubmissionId++;
+    const newSubmission: FormSubmission = {
+      ...submission,
+      id,
+      createdAt: new Date(),
+      status: 'novo',
+      processed: false,
+      processedAt: null,
+      processedById: null,
+      clientId: null
+    };
+    this.formSubmissions.set(id, newSubmission);
+    return newSubmission;
+  }
+  
+  async updateFormSubmissionStatus(id: number, status: string, processedById?: number): Promise<FormSubmission | undefined> {
+    const submission = this.formSubmissions.get(id);
+    if (!submission) return undefined;
+    
+    const updatedSubmission = {
+      ...submission,
+      status,
+      processed: status === 'processado',
+      processedAt: status === 'processado' ? new Date() : submission.processedAt,
+      processedById: processedById || submission.processedById
+    };
+    
+    this.formSubmissions.set(id, updatedSubmission);
+    return updatedSubmission;
+  }
+  
+  async processFormSubmission(id: number, processedById: number): Promise<{client: Client, submission: FormSubmission} | undefined> {
+    const submission = this.formSubmissions.get(id);
+    if (!submission || submission.processed) return undefined;
+    
+    // Buscar o template do formulário para saber qual a coluna do kanban
+    const template = this.formTemplates.get(submission.formTemplateId);
+    if (!template) return undefined;
+    
+    // Extrair dados do cliente da submissão
+    const clientData: InsertClient = {
+      name: submission.data.nome || submission.data.name || 'Cliente sem nome',
+      email: submission.data.email || null,
+      phone: submission.data.telefone || submission.data.phone || null,
+      cpf: submission.data.cpf || null,
+      convenioId: null,
+      birthDate: submission.data.data_nascimento || submission.data.birthDate || null,
+      contact: submission.data.contato || null,
+      company: submission.data.empresa || submission.data.company || null,
+      organizationId: template.organizationId || 1,
+      createdById: processedById
+    };
+    
+    // Criar o cliente
+    const client = await this.createClient(clientData);
+    
+    // Se o template tiver uma coluna do kanban definida, mover o cliente para essa coluna
+    if (template.kanbanColumn) {
+      await this.updateClientKanbanColumn(client.id, template.kanbanColumn);
+    }
+    
+    // Atualizar a submissão para processada e com o ID do cliente
+    const updatedSubmission = {
+      ...submission,
+      status: 'processado',
+      processed: true,
+      processedAt: new Date(),
+      processedById,
+      clientId: client.id
+    };
+    
+    this.formSubmissions.set(id, updatedSubmission);
+    
+    return {
+      client,
+      submission: updatedSubmission
+    };
+  }
+  
+  async getFormSubmissionsByTemplate(templateId: number): Promise<FormSubmission[]> {
+    return Array.from(this.formSubmissions.values()).filter(
+      submission => submission.formTemplateId === templateId
+    );
+  }
+  
+  async getFormSubmissionsByStatus(status: string): Promise<FormSubmission[]> {
+    return Array.from(this.formSubmissions.values()).filter(
+      submission => submission.status === status
+    );
+  }
+  
+  async getFormSubmissionsByOrganization(organizationId: number): Promise<FormSubmission[]> {
+    // Primeiro, obter todos os templates da organização
+    const templates = await this.getFormTemplatesByOrganization(organizationId);
+    const templateIds = templates.map(template => template.id);
+    
+    // Depois, filtrar as submissões por esses templates
+    return Array.from(this.formSubmissions.values()).filter(
+      submission => templateIds.includes(submission.formTemplateId)
+    );
   }
 }
 

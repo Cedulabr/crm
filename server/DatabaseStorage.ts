@@ -973,6 +973,269 @@ export class DatabaseStorage implements IStorage {
       return false;
     }
   }
+
+  // ==================
+  // Form Template methods
+  // ==================
+
+  async getFormTemplates(): Promise<FormTemplate[]> {
+    try {
+      console.log('DB: Buscando todos os modelos de formulário');
+      return await db.select().from(formTemplates);
+    } catch (error) {
+      console.error('Erro ao buscar modelos de formulário:', error);
+      return [];
+    }
+  }
+
+  async getFormTemplate(id: number): Promise<FormTemplate | undefined> {
+    try {
+      console.log(`DB: Buscando modelo de formulário com ID ${id}`);
+      const results = await db.select().from(formTemplates).where(eq(formTemplates.id, id));
+      return results.length > 0 ? results[0] : undefined;
+    } catch (error) {
+      console.error(`Erro ao buscar modelo de formulário com ID ${id}:`, error);
+      return undefined;
+    }
+  }
+
+  async createFormTemplate(template: InsertFormTemplate): Promise<FormTemplate> {
+    try {
+      console.log('DB: Criando novo modelo de formulário');
+      const results = await db.insert(formTemplates).values({
+        ...template,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }).returning();
+      return results[0];
+    } catch (error) {
+      console.error('Erro ao criar modelo de formulário:', error);
+      throw error;
+    }
+  }
+
+  async updateFormTemplate(id: number, template: Partial<InsertFormTemplate>): Promise<FormTemplate | undefined> {
+    try {
+      console.log(`DB: Atualizando modelo de formulário com ID ${id}`);
+      const results = await db
+        .update(formTemplates)
+        .set({
+          ...template,
+          updatedAt: new Date()
+        })
+        .where(eq(formTemplates.id, id))
+        .returning();
+      return results.length > 0 ? results[0] : undefined;
+    } catch (error) {
+      console.error(`Erro ao atualizar modelo de formulário com ID ${id}:`, error);
+      return undefined;
+    }
+  }
+
+  async deleteFormTemplate(id: number): Promise<boolean> {
+    try {
+      console.log(`DB: Removendo modelo de formulário com ID ${id}`);
+      // Primeiro, removemos todas as submissões relacionadas
+      await db
+        .delete(formSubmissions)
+        .where(eq(formSubmissions.formTemplateId, id));
+      
+      // Depois removemos o template
+      const result = await db
+        .delete(formTemplates)
+        .where(eq(formTemplates.id, id));
+      
+      return result.length > 0;
+    } catch (error) {
+      console.error(`Erro ao remover modelo de formulário com ID ${id}:`, error);
+      return false;
+    }
+  }
+
+  async getFormTemplatesByOrganization(organizationId: number): Promise<FormTemplate[]> {
+    try {
+      console.log(`DB: Buscando modelos de formulário da organização ${organizationId}`);
+      return await db
+        .select()
+        .from(formTemplates)
+        .where(eq(formTemplates.organizationId, organizationId));
+    } catch (error) {
+      console.error(`Erro ao buscar modelos de formulário da organização ${organizationId}:`, error);
+      return [];
+    }
+  }
+
+  // ==================
+  // Form Submission methods
+  // ==================
+
+  async getFormSubmissions(): Promise<FormSubmission[]> {
+    try {
+      console.log('DB: Buscando todas as submissões de formulário');
+      return await db.select().from(formSubmissions);
+    } catch (error) {
+      console.error('Erro ao buscar submissões de formulário:', error);
+      return [];
+    }
+  }
+
+  async getFormSubmission(id: number): Promise<FormSubmission | undefined> {
+    try {
+      console.log(`DB: Buscando submissão de formulário com ID ${id}`);
+      const results = await db
+        .select()
+        .from(formSubmissions)
+        .where(eq(formSubmissions.id, id));
+      return results.length > 0 ? results[0] : undefined;
+    } catch (error) {
+      console.error(`Erro ao buscar submissão de formulário com ID ${id}:`, error);
+      return undefined;
+    }
+  }
+
+  async createFormSubmission(submission: InsertFormSubmission): Promise<FormSubmission> {
+    try {
+      console.log('DB: Criando nova submissão de formulário');
+      const results = await db
+        .insert(formSubmissions)
+        .values({
+          ...submission,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        })
+        .returning();
+      return results[0];
+    } catch (error) {
+      console.error('Erro ao criar submissão de formulário:', error);
+      throw error;
+    }
+  }
+
+  async updateFormSubmissionStatus(id: number, status: string, processedById?: number): Promise<FormSubmission | undefined> {
+    try {
+      console.log(`DB: Atualizando status da submissão ${id} para ${status}`);
+      const updateData: Partial<FormSubmission> = {
+        status,
+        updatedAt: new Date()
+      };
+      
+      if (processedById) {
+        updateData.processedById = processedById;
+      }
+      
+      const results = await db
+        .update(formSubmissions)
+        .set(updateData)
+        .where(eq(formSubmissions.id, id))
+        .returning();
+      
+      return results.length > 0 ? results[0] : undefined;
+    } catch (error) {
+      console.error(`Erro ao atualizar status da submissão ${id}:`, error);
+      return undefined;
+    }
+  }
+
+  async processFormSubmission(id: number, processedById: number): Promise<{client: Client, submission: FormSubmission} | undefined> {
+    try {
+      console.log(`DB: Processando submissão ${id} para criar cliente`);
+      
+      // Buscar a submissão
+      const submission = await this.getFormSubmission(id);
+      if (!submission) {
+        console.error(`Submissão ${id} não encontrada`);
+        return undefined;
+      }
+      
+      // Buscar o template para obter a coluna do kanban
+      const template = await this.getFormTemplate(submission.formTemplateId!);
+      if (!template) {
+        console.error(`Template da submissão ${id} não encontrado`);
+        return undefined;
+      }
+      
+      // Tipagem segura para dados do formulário
+      const formData = submission.data as Record<string, any>;
+      
+      // Criar um novo cliente com os dados do formulário
+      const client = await this.createClient({
+        name: formData.name || '',
+        email: formData.email || null,
+        phone: formData.phone || null,
+        cpf: formData.cpf || null,
+        birthDate: formData.birthDate || null,
+        convenioId: formData.convenioId || null,
+        contact: formData.contact || null,
+        company: formData.company || null,
+        organizationId: submission.organizationId,
+        createdById: processedById
+      });
+      
+      // Atualizar a submissão para processada e vinculá-la ao cliente
+      const updatedSubmission = await db
+        .update(formSubmissions)
+        .set({
+          status: 'processado',
+          clientId: client.id,
+          processedById,
+          updatedAt: new Date()
+        })
+        .where(eq(formSubmissions.id, id))
+        .returning();
+      
+      if (updatedSubmission.length === 0) {
+        console.error(`Erro ao atualizar submissão ${id} após processamento`);
+        return undefined;
+      }
+      
+      return {
+        client,
+        submission: updatedSubmission[0]
+      };
+    } catch (error) {
+      console.error(`Erro ao processar submissão ${id}:`, error);
+      return undefined;
+    }
+  }
+
+  async getFormSubmissionsByTemplate(templateId: number): Promise<FormSubmission[]> {
+    try {
+      console.log(`DB: Buscando submissões do template ${templateId}`);
+      return await db
+        .select()
+        .from(formSubmissions)
+        .where(eq(formSubmissions.formTemplateId, templateId));
+    } catch (error) {
+      console.error(`Erro ao buscar submissões do template ${templateId}:`, error);
+      return [];
+    }
+  }
+
+  async getFormSubmissionsByStatus(status: string): Promise<FormSubmission[]> {
+    try {
+      console.log(`DB: Buscando submissões com status ${status}`);
+      return await db
+        .select()
+        .from(formSubmissions)
+        .where(eq(formSubmissions.status, status));
+    } catch (error) {
+      console.error(`Erro ao buscar submissões com status ${status}:`, error);
+      return [];
+    }
+  }
+
+  async getFormSubmissionsByOrganization(organizationId: number): Promise<FormSubmission[]> {
+    try {
+      console.log(`DB: Buscando submissões da organização ${organizationId}`);
+      return await db
+        .select()
+        .from(formSubmissions)
+        .where(eq(formSubmissions.organizationId, organizationId));
+    } catch (error) {
+      console.error(`Erro ao buscar submissões da organização ${organizationId}:`, error);
+      return [];
+    }
+  }
 }
 
 // Exportar uma instância para uso em routes.ts

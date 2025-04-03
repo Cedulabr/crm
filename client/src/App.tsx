@@ -10,8 +10,11 @@ import Proposals from "@/pages/proposals";
 import Kanban from "@/pages/kanban";
 import Users from "@/pages/users";
 import Organizations from "@/pages/organizations";
+import Forms from "@/pages/forms";
 import Login from "@/pages/login";
 import Layout from "@/components/layout/layout";
+import { FormTemplateEditor } from "@/components/forms/form-template-editor";
+import PublicForm from "@/components/forms/public-form";
 
 // Componente de proteção de rota para verificar se o usuário está autenticado
 function PrivateRoute({ component: Component, ...rest }: any) {
@@ -54,6 +57,16 @@ function Router() {
   
   // Determinar qual conteúdo exibir com base na autenticação e rota
   const renderContent = () => {
+    // Rota do formulário público (não requer autenticação)
+    if (location.startsWith("/form/")) {
+      return (
+        <Switch>
+          <Route path="/form/:id" component={PublicForm} />
+          <Route component={NotFound} />
+        </Switch>
+      );
+    }
+    
     // Rota de login 
     if (location === "/login") {
       return isAuthenticated ? <Redirect to="/dashboard" /> : <Login />;
@@ -71,6 +84,9 @@ function Router() {
             <Route path="/kanban" component={Kanban} />
             <Route path="/users" component={Users} />
             <Route path="/organizations" component={Organizations} />
+            <Route path="/forms" component={Forms} />
+            <Route path="/forms/new" component={FormTemplateEditor} />
+            <Route path="/forms/edit/:id" component={FormTemplateEditor} />
             <Route component={NotFound} />
           </Switch>
         </Layout>
