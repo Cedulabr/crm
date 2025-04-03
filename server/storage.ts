@@ -682,11 +682,23 @@ export class MemStorage implements IStorage {
 import { databaseStorage } from './DatabaseStorage';
 import { supabaseStorage } from './storage-supabase';
 
-// Escolhendo qual armazenamento usar
-// Utilize comentários para escolher entre PostgreSQL ou Supabase
+// Importando o client do Baserow
+import { baserowStorage } from './storage-baserow';
 
-// Utilizando PostgreSQL local
-export const storage = databaseStorage;
+// Escolhendo qual armazenamento usar baseado na configuração de ambiente
+// Para usar o Baserow, defina a variável de ambiente STORAGE_TYPE=baserow
+const storageType = process.env.STORAGE_TYPE || 'database';
 
-// Utilizando Supabase (comentado para usar PostgreSQL local)
-// export const storage = supabaseStorage;
+let selectedStorage;
+if (storageType === 'baserow') {
+  console.log('🔄 Usando BaserowStorage para armazenamento de dados');
+  selectedStorage = baserowStorage;
+} else if (storageType === 'supabase') {
+  console.log('🔄 Usando SupabaseStorage para armazenamento de dados');
+  selectedStorage = supabaseStorage;
+} else {
+  console.log('🔄 Usando DatabaseStorage para armazenamento de dados');
+  selectedStorage = databaseStorage;
+}
+
+export const storage = selectedStorage;
