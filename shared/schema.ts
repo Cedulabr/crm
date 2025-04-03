@@ -191,7 +191,7 @@ export const formTemplates = pgTable("form_templates", {
   name: text("name").notNull(),
   description: text("description"),
   kanbanColumn: text("kanban_column").notNull().default("lead"), // Coluna do kanban onde novos leads serão colocados
-  fields: jsonb("fields").notNull(), // Array de campos do formulário
+  fields: json("fields").default("[]"), // Array de campos do formulário
   active: boolean("active").notNull().default(true),
   createdById: integer("created_by_id").references(() => users.id),
   organizationId: integer("organization_id").references(() => organizations.id),

@@ -1,6 +1,105 @@
 import { supabase } from './supabase';
 
 /**
+ * Função para criar tabelas no Supabase
+ */
+async function criarTabelas() {
+  console.log('Verificando e criando tabelas no Supabase...');
+
+  try {
+    // Verificar e criar a tabela form_templates se não existir
+    const { error: checkFormTemplatesError } = await supabase
+      .from('form_templates')
+      .select('id')
+      .limit(1);
+
+    if (checkFormTemplatesError && checkFormTemplatesError.code === '42P01') { // tabela não existe
+      console.log('Criando tabela form_templates...');
+      
+      const { error: createFormTemplatesError } = await supabase.rpc('create_form_templates_table');
+      
+      if (createFormTemplatesError) {
+        console.error('Erro ao criar tabela form_templates:', createFormTemplatesError);
+        
+        // Criar manualmente via SQL pelo RPC
+        const { error: sqlError } = await supabase.rpc('execute_sql', {
+          sql_query: `
+            CREATE TABLE IF NOT EXISTS form_templates (
+              id SERIAL PRIMARY KEY,
+              name TEXT NOT NULL,
+              description TEXT,
+              kanban_column TEXT DEFAULT 'lead',
+              fields JSONB DEFAULT '[]'::jsonb,
+              active BOOLEAN DEFAULT true,
+              created_by_id INTEGER REFERENCES users(id),
+              organization_id INTEGER REFERENCES organizations(id),
+              created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+              updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            );
+          `
+        });
+        
+        if (sqlError) {
+          console.error('Erro ao criar tabela form_templates via SQL:', sqlError);
+          return false;
+        }
+      }
+      
+      console.log('Tabela form_templates criada com sucesso!');
+    } else {
+      console.log('Tabela form_templates já existe.');
+    }
+    
+    // Verificar e criar a tabela form_submissions se não existir
+    const { error: checkFormSubmissionsError } = await supabase
+      .from('form_submissions')
+      .select('id')
+      .limit(1);
+
+    if (checkFormSubmissionsError && checkFormSubmissionsError.code === '42P01') { // tabela não existe
+      console.log('Criando tabela form_submissions...');
+      
+      const { error: createFormSubmissionsError } = await supabase.rpc('create_form_submissions_table');
+      
+      if (createFormSubmissionsError) {
+        console.error('Erro ao criar tabela form_submissions:', createFormSubmissionsError);
+        
+        // Criar manualmente via SQL pelo RPC
+        const { error: sqlError } = await supabase.rpc('execute_sql', {
+          sql_query: `
+            CREATE TABLE IF NOT EXISTS form_submissions (
+              id SERIAL PRIMARY KEY,
+              form_template_id INTEGER REFERENCES form_templates(id),
+              data JSONB DEFAULT '{}'::jsonb,
+              client_id INTEGER REFERENCES clients(id),
+              status TEXT DEFAULT 'novo',
+              processed_by_id INTEGER REFERENCES users(id),
+              organization_id INTEGER REFERENCES organizations(id),
+              created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+              updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            );
+          `
+        });
+        
+        if (sqlError) {
+          console.error('Erro ao criar tabela form_submissions via SQL:', sqlError);
+          return false;
+        }
+      }
+      
+      console.log('Tabela form_submissions criada com sucesso!');
+    } else {
+      console.log('Tabela form_submissions já existe.');
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Erro ao criar tabelas:', error);
+    return false;
+  }
+}
+
+/**
  * Função para inserir dados de teste diretamente no Supabase
  * Com os dados básicos para o funcionamento do sistema (empresa, usuário admin e tabelas de referência)
  */
@@ -188,15 +287,158 @@ async function inserirDadosDeTeste() {
   }
 }
 
-// Executar a inserção de dados de teste
-inserirDadosDeTeste()
-  .then(resultado => {
-    if (resultado) {
-      console.log('Processo de inserção de dados de teste concluído com sucesso!');
-    } else {
-      console.error('Houve erros no processo de inserção de dados de teste.');
+// Função para inserir dados de teste de formulários
+async function inserirDadosFormularios(userId: number, orgId: number) {
+  console.log('Inserindo dados de formulários de teste...');
+  
+  try {
+    // Criar um modelo de formulário de teste
+    console.log('Criando modelo de formulário de teste...');
+    const { data: formTemplateData, error: formTemplateError } = await supabase
+      .from('form_templates')
+      .insert({
+        name: 'Formulário de Lead',
+        description: 'Formulário para captura de leads no site',
+        kanban_column: 'lead',
+        fields: JSON.stringify([
+          {
+            id: 'name',
+            label: 'Nome Completo',
+            type: 'text',
+            required: true,
+            placeholder: 'Digite seu nome completo'
+          },
+          {
+            id: 'email',
+            label: 'E-mail',
+            type: 'email',
+            required: true,
+            placeholder: 'Digite seu e-mail'
+          },
+          {
+            id: 'phone',
+            label: 'Telefone',
+            type: 'tel',
+            required: true,
+            placeholder: '(00) 00000-0000'
+          },
+          {
+            id: 'cpf',
+            label: 'CPF',
+            type: 'text',
+            required: false,
+            placeholder: '000.000.000-00'
+          },
+          {
+            id: 'convenio',
+            label: 'Convênio',
+            type: 'select',
+            required: false,
+            options: [
+              { label: 'Beneficiário do INSS', value: '1' },
+              { label: 'Servidor Público', value: '2' },
+              { label: 'LOAS/BPC', value: '3' },
+              { label: 'Carteira assinada CLT', value: '4' }
+            ]
+          },
+          {
+            id: 'message',
+            label: 'Mensagem',
+            type: 'textarea',
+            required: false,
+            placeholder: 'Digite sua mensagem'
+          }
+        ]),
+        active: true,
+        created_by_id: userId,
+        organization_id: orgId
+      })
+      .select()
+      .single();
+    
+    if (formTemplateError) {
+      console.error('Erro ao criar modelo de formulário de teste:', formTemplateError);
+      return false;
     }
-  })
+    
+    console.log('Modelo de formulário criado com sucesso:', formTemplateData);
+    
+    // Criar uma submissão de formulário de teste
+    console.log('Criando submissão de formulário de teste...');
+    const { data: formSubmissionData, error: formSubmissionError } = await supabase
+      .from('form_submissions')
+      .insert({
+        form_template_id: formTemplateData.id,
+        data: JSON.stringify({
+          name: 'João da Silva',
+          email: 'joao.silva@email.com',
+          phone: '(71) 98888-7777',
+          cpf: '987.654.321-00',
+          convenio: '1',
+          message: 'Olá, gostaria de mais informações sobre empréstimos.'
+        }),
+        status: 'novo',
+        organization_id: orgId
+      })
+      .select()
+      .single();
+    
+    if (formSubmissionError) {
+      console.error('Erro ao criar submissão de formulário de teste:', formSubmissionError);
+      return false;
+    }
+    
+    console.log('Submissão de formulário criada com sucesso:', formSubmissionData);
+    
+    return true;
+  } catch (error) {
+    console.error('Erro ao inserir dados de formulários:', error);
+    return false;
+  }
+}
+
+// Executar a criação de tabelas e inserção de dados de teste
+async function inicializarSistema() {
+  console.log('Inicializando sistema...');
+  
+  try {
+    // Primeiro criar as tabelas (se necessário)
+    const tabelasCriadas = await criarTabelas();
+    if (!tabelasCriadas) {
+      console.error('Houve erros na criação das tabelas.');
+      return;
+    }
+    
+    // Depois inserir os dados básicos
+    const dadosInseridos = await inserirDadosDeTeste();
+    if (!dadosInseridos) {
+      console.error('Houve erros na inserção dos dados de teste básicos.');
+      return;
+    }
+    
+    // Obter IDs necessários para dados de formulários
+    const { data: userData } = await supabase
+      .from('users')
+      .select('id, organization_id')
+      .eq('email', 'admin@empresa.com')
+      .single();
+    
+    if (userData) {
+      // Inserir dados de formulários
+      const formulariosInseridos = await inserirDadosFormularios(userData.id, userData.organization_id);
+      if (!formulariosInseridos) {
+        console.error('Houve erros na inserção dos dados de formulários.');
+      }
+    }
+    
+    console.log('Sistema inicializado com sucesso!');
+  } catch (error) {
+    console.error('Erro durante a inicialização do sistema:', error);
+  }
+}
+
+// Executar inicialização do sistema
+inicializarSistema()
   .catch(error => {
-    console.error('Erro durante o processo de inserção de dados de teste:', error);
+    console.error('Erro inesperado durante a inicialização do sistema:', error);
   });

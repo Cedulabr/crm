@@ -109,6 +109,119 @@ export interface Database {
         }
         Relationships: []
       }
+      form_submissions: {
+        Row: {
+          id: number
+          form_template_id: number | null
+          data: Json | null
+          client_id: number | null
+          status: string
+          processed_by_id: number | null
+          organization_id: number | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: number
+          form_template_id?: number | null
+          data?: Json | null
+          client_id?: number | null
+          status?: string
+          processed_by_id?: number | null
+          organization_id?: number | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: number
+          form_template_id?: number | null
+          data?: Json | null
+          client_id?: number | null
+          status?: string
+          processed_by_id?: number | null
+          organization_id?: number | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "form_submissions_client_id_fkey"
+            columns: ["client_id"]
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "form_submissions_form_template_id_fkey"
+            columns: ["form_template_id"]
+            referencedRelation: "form_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "form_submissions_organization_id_fkey"
+            columns: ["organization_id"]
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "form_submissions_processed_by_id_fkey"
+            columns: ["processed_by_id"]
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      form_templates: {
+        Row: {
+          id: number
+          name: string
+          description: string | null
+          kanban_column: string | null
+          fields: Json | null
+          active: boolean
+          created_by_id: number | null
+          organization_id: number | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: number
+          name: string
+          description?: string | null
+          kanban_column?: string | null
+          fields?: Json | null
+          active?: boolean
+          created_by_id?: number | null
+          organization_id?: number | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: number
+          name?: string
+          description?: string | null
+          kanban_column?: string | null
+          fields?: Json | null
+          active?: boolean
+          created_by_id?: number | null
+          organization_id?: number | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "form_templates_created_by_id_fkey"
+            columns: ["created_by_id"]
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "form_templates_organization_id_fkey"
+            columns: ["organization_id"]
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       kanban: {
         Row: {
           id: number

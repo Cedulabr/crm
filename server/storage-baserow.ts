@@ -886,27 +886,145 @@ export class BaserowStorage implements IStorage {
   // ==================
   
   async getFormTemplates(): Promise<FormTemplate[]> {
-    throw new Error("Método getFormTemplates não implementado em BaserowStorage");
+    console.log('Baserow: Buscando todos os modelos de formulário');
+    
+    try {
+      const response = await this.baserowAPI.get('/database/rows/table/25/');
+      const data = response.data.results || [];
+      
+      return data.map((row: BaserowRow) => this.mapBaserowToFormTemplate(row));
+    } catch (error) {
+      console.error('Erro ao buscar modelos de formulário no Baserow:', error);
+      return [];
+    }
   }
 
   async getFormTemplate(id: number): Promise<FormTemplate | undefined> {
-    throw new Error("Método getFormTemplate não implementado em BaserowStorage");
+    console.log(`Baserow: Buscando modelo de formulário com ID ${id}`);
+    
+    try {
+      const response = await this.baserowAPI.get(`/database/rows/table/25/${id}/`);
+      return this.mapBaserowToFormTemplate(response.data);
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        return undefined;
+      }
+      console.error(`Erro ao buscar modelo de formulário com ID ${id} no Baserow:`, error);
+      throw error;
+    }
   }
 
   async createFormTemplate(template: InsertFormTemplate): Promise<FormTemplate> {
-    throw new Error("Método createFormTemplate não implementado em BaserowStorage");
+    console.log('Baserow: Criando novo modelo de formulário');
+    
+    try {
+      const data = this.mapFormTemplateToBaserow(template);
+      const response = await this.baserowAPI.post('/database/rows/table/25/', data);
+      return this.mapBaserowToFormTemplate(response.data);
+    } catch (error) {
+      console.error('Erro ao criar modelo de formulário no Baserow:', error);
+      throw error;
+    }
   }
 
   async updateFormTemplate(id: number, template: Partial<InsertFormTemplate>): Promise<FormTemplate | undefined> {
-    throw new Error("Método updateFormTemplate não implementado em BaserowStorage");
+    console.log(`Baserow: Atualizando modelo de formulário com ID ${id}`);
+    
+    try {
+      // Verificar se o template existe
+      const existingTemplate = await this.getFormTemplate(id);
+      if (!existingTemplate) return undefined;
+      
+      const data = this.mapFormTemplateToBaserow(template as InsertFormTemplate, true);
+      const response = await this.baserowAPI.patch(`/database/rows/table/25/${id}/`, data);
+      return this.mapBaserowToFormTemplate(response.data);
+    } catch (error) {
+      console.error(`Erro ao atualizar modelo de formulário com ID ${id} no Baserow:`, error);
+      throw error;
+    }
   }
 
   async deleteFormTemplate(id: number): Promise<boolean> {
-    throw new Error("Método deleteFormTemplate não implementado em BaserowStorage");
+    console.log(`Baserow: Removendo modelo de formulário com ID ${id}`);
+    
+    try {
+      // Primeiro, remover todas as submissões relacionadas
+      const submissions = await this.getFormSubmissionsByTemplate(id);
+      for (const submission of submissions) {
+        try {
+          await this.baserowAPI.delete(`/database/rows/table/26/${submission.id}/`);
+        } catch (error) {
+          console.error(`Erro ao excluir submissão ${submission.id} no Baserow:`, error);
+        }
+      }
+      
+      // Depois, remover o template
+      await this.baserowAPI.delete(`/database/rows/table/25/${id}/`);
+      return true;
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        return false;
+      }
+      console.error(`Erro ao excluir modelo de formulário com ID ${id} no Baserow:`, error);
+      throw error;
+    }
   }
 
   async getFormTemplatesByOrganization(organizationId: number): Promise<FormTemplate[]> {
-    throw new Error("Método getFormTemplatesByOrganization não implementado em BaserowStorage");
+    console.log(`Baserow: Buscando modelos de formulário da organização ${organizationId}`);
+    
+    try {
+      const response = await this.baserowAPI.get(`/database/rows/table/25/?filter__field_175__equal=${organizationId}`);
+      const data = response.data.results || [];
+      
+      return data.map((row: BaserowRow) => this.mapBaserowToFormTemplate(row));
+    } catch (error) {
+      console.error(`Erro ao buscar modelos de formulário da organização ${organizationId} no Baserow:`, error);
+      return [];
+    }
+  }
+  
+  // Métodos privados para mapeamento de FormTemplate
+  private mapBaserowToFormTemplate(row: BaserowRow): FormTemplate {
+    return {
+      id: row.id,
+      name: row.nome || '',
+      description: row.descricao || null,
+      kanbanColumn: row.coluna_kanban || 'lead',
+      fields: row.campos || [],
+      active: row.ativo === 'sim',
+      createdById: row.criado_por_id,
+      organizationId: row.organizacao_id,
+      createdAt: row.data_criacao ? new Date(row.data_criacao) : null,
+      updatedAt: row.data_atualizacao ? new Date(row.data_atualizacao) : null
+    };
+  }
+
+  private mapFormTemplateToBaserow(template: InsertFormTemplate, isUpdate: boolean = false): Record<string, any> {
+    const data: Record<string, any> = {
+      nome: template.name,
+      descricao: template.description,
+      coluna_kanban: template.kanbanColumn,
+      campos: template.fields,
+      ativo: template.active ? 'sim' : 'nao'
+    };
+    
+    if (template.createdById) {
+      data.criado_por_id = template.createdById;
+    }
+    
+    if (template.organizationId) {
+      data.organizacao_id = template.organizationId;
+    }
+    
+    if (!isUpdate) {
+      data.data_criacao = new Date().toISOString();
+      data.data_atualizacao = new Date().toISOString();
+    } else {
+      data.data_atualizacao = new Date().toISOString();
+    }
+    
+    return data;
   }
   
   // ==================
@@ -914,35 +1032,200 @@ export class BaserowStorage implements IStorage {
   // ==================
   
   async getFormSubmissions(): Promise<FormSubmission[]> {
-    throw new Error("Método getFormSubmissions não implementado em BaserowStorage");
+    console.log('Baserow: Buscando todas as submissões de formulário');
+    
+    try {
+      const response = await this.baserowAPI.get('/database/rows/table/26/');
+      const data = response.data.results || [];
+      
+      return data.map((row: BaserowRow) => this.mapBaserowToFormSubmission(row));
+    } catch (error) {
+      console.error('Erro ao buscar submissões de formulário no Baserow:', error);
+      return [];
+    }
   }
 
   async getFormSubmission(id: number): Promise<FormSubmission | undefined> {
-    throw new Error("Método getFormSubmission não implementado em BaserowStorage");
+    console.log(`Baserow: Buscando submissão de formulário com ID ${id}`);
+    
+    try {
+      const response = await this.baserowAPI.get(`/database/rows/table/26/${id}/`);
+      return this.mapBaserowToFormSubmission(response.data);
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        return undefined;
+      }
+      console.error(`Erro ao buscar submissão de formulário com ID ${id} no Baserow:`, error);
+      throw error;
+    }
   }
 
   async createFormSubmission(submission: InsertFormSubmission): Promise<FormSubmission> {
-    throw new Error("Método createFormSubmission não implementado em BaserowStorage");
+    console.log('Baserow: Criando nova submissão de formulário');
+    
+    try {
+      // Buscar o template para obter a organização
+      let organizationId = submission.organizationId;
+      if (submission.formTemplateId && !organizationId) {
+        const template = await this.getFormTemplate(submission.formTemplateId);
+        if (template) {
+          organizationId = template.organizationId;
+        }
+      }
+      
+      const data = {
+        formulario_id: submission.formTemplateId,
+        dados: submission.data,
+        status: submission.status || 'novo',
+        organizacao_id: organizationId,
+        data_criacao: new Date().toISOString(),
+        data_atualizacao: new Date().toISOString()
+      };
+      
+      const response = await this.baserowAPI.post('/database/rows/table/26/', data);
+      return this.mapBaserowToFormSubmission(response.data);
+    } catch (error) {
+      console.error('Erro ao criar submissão de formulário no Baserow:', error);
+      throw error;
+    }
   }
 
   async updateFormSubmissionStatus(id: number, status: string, processedById?: number): Promise<FormSubmission | undefined> {
-    throw new Error("Método updateFormSubmissionStatus não implementado em BaserowStorage");
+    console.log(`Baserow: Atualizando status da submissão ${id} para ${status}`);
+    
+    try {
+      // Verificar se a submissão existe
+      const existingSubmission = await this.getFormSubmission(id);
+      if (!existingSubmission) return undefined;
+      
+      const data: Record<string, any> = {
+        status: status,
+        data_atualizacao: new Date().toISOString()
+      };
+      
+      if (processedById !== undefined) {
+        data.processado_por_id = processedById;
+      }
+      
+      const response = await this.baserowAPI.patch(`/database/rows/table/26/${id}/`, data);
+      return this.mapBaserowToFormSubmission(response.data);
+    } catch (error) {
+      console.error(`Erro ao atualizar status da submissão ${id} no Baserow:`, error);
+      throw error;
+    }
   }
 
   async processFormSubmission(id: number, processedById: number): Promise<{client: Client, submission: FormSubmission} | undefined> {
-    throw new Error("Método processFormSubmission não implementado em BaserowStorage");
+    console.log(`Baserow: Processando submissão ${id} para criar cliente`);
+    
+    try {
+      // Buscar a submissão
+      const submission = await this.getFormSubmission(id);
+      if (!submission) {
+        console.error(`Submissão ${id} não encontrada`);
+        return undefined;
+      }
+      
+      // Buscar o template para informações adicionais
+      const template = await this.getFormTemplate(submission.formTemplateId || 0);
+      if (!template) {
+        console.error(`Template da submissão ${id} não encontrado`);
+        return undefined;
+      }
+      
+      // Tipagem segura para dados do formulário
+      const formData = submission.data as Record<string, any>;
+      
+      // Criar um novo cliente com os dados do formulário
+      const client = await this.createClient({
+        name: formData.name || formData.nome || '',
+        email: formData.email || null,
+        phone: formData.phone || formData.telefone || null,
+        cpf: formData.cpf || null,
+        birthDate: formData.birthDate || formData.data_nascimento || null,
+        convenioId: formData.convenioId || formData.convenio_id || null,
+        contact: formData.contact || formData.contato || null,
+        company: formData.company || formData.empresa || null,
+        organizationId: submission.organizationId,
+        createdById: processedById
+      });
+      
+      // Atualizar a submissão para processada e vinculá-la ao cliente
+      const data = {
+        status: 'processado',
+        cliente_id: client.id,
+        processado_por_id: processedById,
+        data_atualizacao: new Date().toISOString()
+      };
+      
+      const response = await this.baserowAPI.patch(`/database/rows/table/26/${id}/`, data);
+      const updatedSubmission = this.mapBaserowToFormSubmission(response.data);
+      
+      return {
+        client,
+        submission: updatedSubmission
+      };
+    } catch (error) {
+      console.error(`Erro ao processar submissão ${id} no Baserow:`, error);
+      return undefined;
+    }
   }
 
   async getFormSubmissionsByTemplate(templateId: number): Promise<FormSubmission[]> {
-    throw new Error("Método getFormSubmissionsByTemplate não implementado em BaserowStorage");
+    console.log(`Baserow: Buscando submissões do template ${templateId}`);
+    
+    try {
+      const response = await this.baserowAPI.get(`/database/rows/table/26/?filter__field_180__equal=${templateId}`);
+      const data = response.data.results || [];
+      
+      return data.map((row: BaserowRow) => this.mapBaserowToFormSubmission(row));
+    } catch (error) {
+      console.error(`Erro ao buscar submissões do template ${templateId} no Baserow:`, error);
+      return [];
+    }
   }
 
   async getFormSubmissionsByStatus(status: string): Promise<FormSubmission[]> {
-    throw new Error("Método getFormSubmissionsByStatus não implementado em BaserowStorage");
+    console.log(`Baserow: Buscando submissões com status ${status}`);
+    
+    try {
+      const response = await this.baserowAPI.get(`/database/rows/table/26/?filter__field_182__equal=${status}`);
+      const data = response.data.results || [];
+      
+      return data.map((row: BaserowRow) => this.mapBaserowToFormSubmission(row));
+    } catch (error) {
+      console.error(`Erro ao buscar submissões com status ${status} no Baserow:`, error);
+      return [];
+    }
   }
 
   async getFormSubmissionsByOrganization(organizationId: number): Promise<FormSubmission[]> {
-    throw new Error("Método getFormSubmissionsByOrganization não implementado em BaserowStorage");
+    console.log(`Baserow: Buscando submissões da organização ${organizationId}`);
+    
+    try {
+      const response = await this.baserowAPI.get(`/database/rows/table/26/?filter__field_184__equal=${organizationId}`);
+      const data = response.data.results || [];
+      
+      return data.map((row: BaserowRow) => this.mapBaserowToFormSubmission(row));
+    } catch (error) {
+      console.error(`Erro ao buscar submissões da organização ${organizationId} no Baserow:`, error);
+      return [];
+    }
+  }
+  
+  // Método privado para mapeamento de FormSubmission
+  private mapBaserowToFormSubmission(row: BaserowRow): FormSubmission {
+    return {
+      id: row.id,
+      formTemplateId: row.formulario_id,
+      data: row.dados || {},
+      clientId: row.cliente_id,
+      status: row.status || 'novo',
+      processedById: row.processado_por_id,
+      organizationId: row.organizacao_id,
+      createdAt: row.data_criacao ? new Date(row.data_criacao) : null,
+      updatedAt: row.data_atualizacao ? new Date(row.data_atualizacao) : null
+    };
   }
 }
 
