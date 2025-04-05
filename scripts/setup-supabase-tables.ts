@@ -1,125 +1,170 @@
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
-import path from 'path';
 
-// Carregar variáveis de ambiente
-dotenv.config({ path: path.resolve(process.cwd(), '.env') });
-
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL || '';
-const SUPABASE_KEY = process.env.VITE_SUPABASE_KEY || '';
-
-// No Supabase, vamos usar o serviço de autenticação embutido para gerenciar usuários
-// e criar tabelas personalizadas para armazenar dados adicionais relacionados aos usuários
+dotenv.config();
 
 async function setupSupabaseTables() {
-  if (!SUPABASE_URL || !SUPABASE_KEY) {
-    console.error('⚠️ Credenciais do Supabase não configuradas corretamente!');
-    process.exit(1);
-  }
-
   console.log('Configurando tabelas no Supabase...');
   
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_KEY;
+  
+  if (!supabaseUrl || !supabaseKey) {
+    console.error('Erro: SUPABASE_URL ou SUPABASE_KEY não estão configurados no arquivo .env');
+    return;
+  }
+  
+  const supabase = createClient(supabaseUrl, supabaseKey);
+  
   try {
-    // Criar cliente do Supabase
-    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+    // Criar tabela user_profiles (se não existir)
+    console.log('Criando tabela user_profiles...');
     
-    console.log('1. Verificando tabela de perfis de usuário...');
+    const { error: createTableError } = await supabase.rpc('execute_sql', {
+      sql_query: `
+        CREATE TABLE IF NOT EXISTS public.user_profiles (
+          id UUID PRIMARY KEY,
+          name TEXT NOT NULL,
+          role TEXT NOT NULL CHECK (role IN ('agent', 'manager', 'superadmin')),
+          sector TEXT NOT NULL CHECK (sector IN ('Comercial', 'Financeiro', 'Operacional')),
+          organization_id INTEGER NOT NULL,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+        );
+
+        -- Habilitar o RLS (Row Level Security)
+        ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
+
+        -- Criar políticas de acesso
+        -- Política para permitir que um usuário veja seu próprio perfil
+        DROP POLICY IF EXISTS "Allow users to read their own profile" ON public.user_profiles;
+        CREATE POLICY "Allow users to read their own profile"
+          ON public.user_profiles
+          FOR SELECT
+          TO authenticated
+          USING (auth.uid() = id);
+
+        -- Política para permitir que um usuário atualize seu próprio perfil
+        DROP POLICY IF EXISTS "Allow users to update their own profile" ON public.user_profiles;
+        CREATE POLICY "Allow users to update their own profile"
+          ON public.user_profiles
+          FOR UPDATE
+          TO authenticated
+          USING (auth.uid() = id);
+
+        -- Política para permitir que um usuário insira seu próprio perfil
+        DROP POLICY IF EXISTS "Allow users to insert their own profile" ON public.user_profiles;
+        CREATE POLICY "Allow users to insert their own profile"
+          ON public.user_profiles
+          FOR INSERT
+          TO authenticated
+          WITH CHECK (auth.uid() = id);
+
+        -- Política para permitir que gerentes vejam os perfis de sua organização
+        DROP POLICY IF EXISTS "Allow managers to read organization profiles" ON public.user_profiles;
+        CREATE POLICY "Allow managers to read organization profiles"
+          ON public.user_profiles
+          FOR SELECT
+          TO authenticated
+          USING (
+            EXISTS (
+              SELECT 1 FROM public.user_profiles
+              WHERE id = auth.uid() AND role IN ('manager', 'superadmin')
+            )
+            AND
+            (
+              organization_id = (SELECT organization_id FROM public.user_profiles WHERE id = auth.uid())
+              OR
+              (SELECT role FROM public.user_profiles WHERE id = auth.uid()) = 'superadmin'
+            )
+          );
+
+        -- Política para permitir que superadmins gerenciem todos os perfis
+        DROP POLICY IF EXISTS "Allow superadmins to manage all profiles" ON public.user_profiles;
+        CREATE POLICY "Allow superadmins to manage all profiles"
+          ON public.user_profiles
+          FOR ALL
+          TO authenticated
+          USING (
+            EXISTS (
+              SELECT 1 FROM public.user_profiles
+              WHERE id = auth.uid() AND role = 'superadmin'
+            )
+          );
+      `
+    });
     
-    // Verificar se a tabela de perfis já existe
-    const { data: existingProfiles, error: checkError } = await supabase
+    if (createTableError) {
+      console.error('Erro ao criar tabela:', createTableError.message);
+      
+      // Veremos se podemos fazer algo mais simples
+      console.log('Tentando criação mais simples da tabela...');
+      
+      const { error: simpleCreateError } = await supabase
+        .from('user_profiles')
+        .select('id')
+        .limit(1);
+      
+      if (simpleCreateError && simpleCreateError.code === '42P01') {
+        // Tabela não existe, vamos criar de forma mais simples
+        const { error: createError } = await supabase.rpc('execute_sql', {
+          sql_query: `
+            CREATE TABLE IF NOT EXISTS public.user_profiles (
+              id UUID PRIMARY KEY,
+              name TEXT NOT NULL,
+              role TEXT NOT NULL,
+              sector TEXT NOT NULL, 
+              organization_id INTEGER NOT NULL,
+              created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+              updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+            );
+            ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
+          `
+        });
+        
+        if (createError) {
+          console.error('Erro na criação simplificada:', createError.message);
+          console.log('\nIMPORTANTE: Você precisa executar o seguinte SQL no painel do Supabase:');
+          console.log(`
+CREATE TABLE IF NOT EXISTS public.user_profiles (
+  id UUID PRIMARY KEY,
+  name TEXT NOT NULL,
+  role TEXT NOT NULL,
+  sector TEXT NOT NULL, 
+  organization_id INTEGER NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
+
+-- Habilitar acesso básico
+CREATE POLICY "Allow authenticated access" ON public.user_profiles
+  FOR ALL TO authenticated USING (true);
+          `);
+        } else {
+          console.log('Tabela user_profiles criada com configuração simplificada.');
+        }
+      } else {
+        console.log('A tabela user_profiles já existe.');
+      }
+    } else {
+      console.log('Tabela user_profiles configurada com sucesso!');
+    }
+    
+    // Verificar se a tabela foi criada corretamente
+    const { data: testData, error: testError } = await supabase
       .from('user_profiles')
       .select('id')
       .limit(1);
     
-    if (checkError) {
-      console.log('A tabela de perfis não existe ou não pode ser acessada.');
-      console.log('Erro:', checkError.message);
-      
-      console.log('\nVocê precisará criar a tabela manualmente no console do Supabase.');
-      console.log('Use o seguinte SQL:');
-      console.log(`
-CREATE TABLE IF NOT EXISTS user_profiles (
-  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  name VARCHAR(255),
-  role VARCHAR(50) DEFAULT 'agent',
-  sector VARCHAR(50),
-  organization_id INTEGER,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Adicionar políticas RLS para a tabela de perfis
-ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
-
--- Política para permitir que usuários vejam seus próprios perfis
-CREATE POLICY "Users can view their own profile"
-  ON user_profiles
-  FOR SELECT
-  USING (auth.uid() = id);
-
--- Política para permitir que usuários atualizem seus próprios perfis
-CREATE POLICY "Users can update their own profile"
-  ON user_profiles
-  FOR UPDATE
-  USING (auth.uid() = id);
-
--- Função de trigger para atualizar o timestamp 'updated_at'
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.updated_at = CURRENT_TIMESTAMP;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
--- Trigger para atualizar o timestamp 'updated_at'
-CREATE TRIGGER update_user_profiles_updated_at
-  BEFORE UPDATE ON user_profiles
-  FOR EACH ROW
-  EXECUTE FUNCTION update_updated_at_column();
-      `);
+    if (testError) {
+      console.error('Erro ao acessar tabela:', testError.message);
     } else {
-      console.log('✅ Tabela de perfis já existe!');
+      console.log('Tabela user_profiles está acessível, contém', testData.length, 'registros.');
     }
-    
-    // Agora vamos testar a inserção de um perfil
-    console.log('2. Testando inserção na tabela de perfis...');
-    const testData = {
-      id: '00000000-0000-0000-0000-000000000000', // UUID inválido para teste
-      name: 'Test User',
-      role: 'agent',
-      sector: 'Comercial',
-      organization_id: 1
-    };
-    
-    const { error: insertError } = await supabase
-      .from('user_profiles')
-      .upsert(testData)
-      .select();
-      
-    if (insertError) {
-      console.log('Não foi possível inserir dados de teste na tabela.');
-      console.log('Erro:', insertError.message);
-      console.log('Este erro pode ocorrer devido a referências de chave estrangeira (id -> auth.users).');
-    } else {
-      console.log('✅ Inserção de teste bem-sucedida!');
-      
-      // Remover dados de teste
-      await supabase
-        .from('user_profiles')
-        .delete()
-        .eq('id', testData.id);
-    }
-    
-    console.log('\n✅ Verificação concluída!');
-    console.log('\nPróximos passos:');
-    console.log('1. Se a tabela ainda não existir, crie-a manualmente no console do Supabase');
-    console.log('2. Registre novos usuários através da interface do aplicativo');
-    console.log('3. Use o script de migração para transferir usuários existentes para o Supabase');
     
   } catch (error) {
-    console.error('⚠️ Erro ao configurar tabelas no Supabase:', error);
-    process.exit(1);
+    console.error('Erro ao configurar tabelas do Supabase:', error);
   }
 }
 
