@@ -110,4 +110,4 @@ export interface IStorage {
   getFormSubmissionsByOrganization(organizationId: number): Promise<FormSubmission[]>;
 }
 
-export { databaseStorage as storage } from './DatabaseStorage';
+export { supabaseStorage as storage } from './services/supabase-storage';

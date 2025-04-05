@@ -12,6 +12,7 @@ import {
   insertFormSubmissionSchema,
   UserRole
 } from "@shared/schema";
+import { checkSupabaseTables } from './routes/check-supabase-tables';
 
 // Importar o storage configurado no arquivo storage.ts
 // Este projeto usa DatabaseStorage para persistência dos dados no PostgreSQL
@@ -344,6 +345,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(banks);
     } catch (error) {
       res.status(500).json({ message: 'Error fetching banks' });
+    }
+  });
+  
+  // Rota temporária para testar o Supabase (sem autenticação)
+  app.use('/api/test-supabase-client', (req, res, next) => {
+    // Desativar middleware de autenticação para esta rota específica
+    req.user = { id: 1, role: UserRole.SUPERADMIN, organizationId: 1 } as any;
+    next();
+  });
+  
+  app.get('/api/test-supabase-client', async (req, res) => {
+    try {
+      console.log('=== TESTE DO SUPABASE ===');
+      console.log('Tentando criar um cliente de teste...');
+      
+      // Conectar ao Supabase diretamente para verificar a conexão
+      const { createClient } = await import('@supabase/supabase-js');
+      const supabase = createClient(
+        process.env.SUPABASE_URL || '',
+        process.env.SUPABASE_KEY || ''
+      );
+      
+      console.log('URL do Supabase:', process.env.SUPABASE_URL?.substring(0, 15) + '...');
+      console.log('Chave do Supabase:', process.env.SUPABASE_KEY?.substring(0, 5) + '...');
+      
+      // Verificar conexão
+      console.log('Testando conexão com Supabase...');
+      const { data: connectionTest, error: connectionError } = await supabase.from('clients').select('count').limit(1);
+      
+      if (connectionError) {
+        console.error('Erro na conexão com Supabase:', connectionError);
+        return res.status(500).json({ 
+          message: 'Erro na conexão com Supabase', 
+          error: connectionError 
+        });
+      }
+      
+      console.log('Conexão com Supabase bem-sucedida:', connectionTest);
+      
+      // Tentar criar um cliente de teste
+      const testClient = {
+        name: "Cliente Teste Supabase",
+        email: "cliente.teste@example.com",
+        phone: "(71) 98765-4321",
+        cpf: "123.456.789-00",
+        createdById: 1,
+        organizationId: 1
+      };
+      
+      console.log('Dados do cliente a ser criado:', testClient);
+      
+      // Tenta inserir diretamente com o supabase
+      console.log('Inserindo cliente direto no Supabase...');
+      const { data: directInsert, error: directError } = await supabase
+        .from('clients')
+        .insert(testClient)
+        .select();
+        
+      if (directError) {
+        console.error('Erro ao inserir direto no Supabase:', directError);
+        return res.status(500).json({ 
+          message: 'Erro ao inserir direto no Supabase', 
+          error: directError 
+        });
+      }
+      
+      console.log('Cliente inserido direto com sucesso:', directInsert);
+      
+      // Usando o storage para criar cliente
+      console.log('Tentando criar cliente usando o storage...');
+      const createdClient = await storage.createClient(testClient);
+      console.log('Cliente criado com storage:', createdClient);
+      
+      res.json({
+        message: "Cliente de teste criado com sucesso!",
+        directInsert,
+        storageClient: createdClient
+      });
+    } catch (error) {
+      console.error('Erro no teste do Supabase:', error);
+      res.status(500).json({ 
+        message: 'Erro ao testar o Supabase', 
+        error: error instanceof Error ? error.message : String(error)
+      });
     }
   });
 
@@ -1723,6 +1808,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Erro ao gerar sugestões de autocompletar:', error);
       res.status(500).json({ message: 'Error generating autocomplete suggestions' });
     }
+  });
+
+  // =================
+  // Supabase Setup Check
+  // =================
+  
+  // Rota para verificar o status das tabelas no Supabase
+  app.get('/api/check-supabase-tables', requireAuth, checkRole([UserRole.SUPERADMIN]), async (req, res) => {
+    await checkSupabaseTables(req, res);
   });
 
   const httpServer = createServer(app);

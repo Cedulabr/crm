@@ -26,6 +26,12 @@ const mainNavItems: SidebarNavItem[] = [
     label: "Empresas",
     roles: ["superadmin"] // Apenas superadmin pode ver
   },
+  {
+    href: "/supabase-admin",
+    icon: "storage",
+    label: "Config. Supabase",
+    roles: ["superadmin"] // Apenas superadmin pode ver
+  },
 ];
 
 const quickFilterItems: SidebarNavItem[] = [

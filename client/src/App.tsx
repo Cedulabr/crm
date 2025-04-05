@@ -15,6 +15,7 @@ import Login from "@/pages/login";
 import Layout from "@/components/layout/layout";
 import { FormTemplateEditor } from "@/components/forms/form-template-editor";
 import PublicForm from "@/components/forms/public-form";
+import SupabaseAdminPage from "@/pages/supabase-admin";
 import { SupabaseAuthProvider, useSupabaseAuth } from "./hooks/use-supabase-auth";
 import { useSupabaseProfile } from "./hooks/use-supabase-profile";
 
@@ -87,6 +88,7 @@ function Router() {
             <Route path="/forms" component={Forms} />
             <Route path="/forms/new" component={FormTemplateEditor} />
             <Route path="/forms/edit/:id" component={FormTemplateEditor} />
+            <Route path="/supabase-admin" component={SupabaseAdminPage} />
             <Route component={NotFound} />
           </Switch>
         </Layout>
