@@ -3,7 +3,9 @@ import { supabase } from './supabase';
 // Função para testar a conexão com o Supabase
 export async function testSupabaseConnection() {
   try {
-    const { data, error } = await supabase.from('test').select('*').limit(1);
+    // Usar uma operação que não depende de tabelas específicas
+    // Verificar a conexão usando a API de autenticação
+    const { data, error } = await supabase.auth.getSession();
     
     if (error) {
       console.error('Erro ao conectar ao Supabase:', error);
