@@ -9,9 +9,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { useSupabaseProfile } from "@/hooks/use-supabase-profile";
 import { FaFileImport, FaFileExport, FaDownload } from "react-icons/fa";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Papa from "papaparse";
 import { UserRole } from "@shared/schema";
 
@@ -21,10 +20,23 @@ export function CSVImportExport() {
   const [isImporting, setIsImporting] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
-  const { profile } = useSupabaseProfile();
+  const [userRole, setUserRole] = useState<string | null>(null);
+  
+  // Carregar o papel do usuário do localStorage
+  useEffect(() => {
+    try {
+      const userDataStr = localStorage.getItem("user");
+      if (userDataStr) {
+        const userData = JSON.parse(userDataStr);
+        setUserRole(userData.role);
+      }
+    } catch (error) {
+      console.error("Erro ao obter papel do usuário:", error);
+    }
+  }, []);
   
   // Verificar se o usuário é administrador ou gerente
-  const isAllowed = profile?.role === UserRole.SUPERADMIN || profile?.role === UserRole.MANAGER;
+  const isAllowed = userRole === UserRole.SUPERADMIN || userRole === UserRole.MANAGER;
   
   if (!isAllowed) {
     return null;
