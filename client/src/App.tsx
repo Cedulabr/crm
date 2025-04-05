@@ -15,17 +15,23 @@ import Login from "@/pages/login";
 import Layout from "@/components/layout/layout";
 import { FormTemplateEditor } from "@/components/forms/form-template-editor";
 import PublicForm from "@/components/forms/public-form";
+import { SupabaseAuthProvider, useSupabaseAuth } from "./hooks/use-supabase-auth";
 
 // Componente de proteção de rota para verificar se o usuário está autenticado
 function PrivateRoute({ component: Component, ...rest }: any) {
   const [location, setLocation] = useLocation();
-  const isAuthenticated = localStorage.getItem("token") !== null;
+  const { user, isLoading } = useSupabaseAuth();
+  const isAuthenticated = !!user;
   
   useEffect(() => {
-    if (!isAuthenticated && location !== "/login") {
+    if (!isLoading && !isAuthenticated && location !== "/login") {
       setLocation("/login");
     }
-  }, [isAuthenticated, location, setLocation]);
+  }, [isAuthenticated, isLoading, location, setLocation]);
+  
+  if (isLoading) {
+    return <div className="flex items-center justify-center h-screen">Carregando...</div>;
+  }
   
   if (!isAuthenticated) {
     return null;
@@ -35,28 +41,21 @@ function PrivateRoute({ component: Component, ...rest }: any) {
 }
 
 function Router() {
-  const [isAuthenticated, setIsAuthenticated] = useState(
-    localStorage.getItem("token") !== null
-  );
+  const { user, isLoading } = useSupabaseAuth();
   const [location] = useLocation();
-  
-  // Verificar autenticação inicial e atualizar quando o token mudar
-  useEffect(() => {
-    const checkAuth = () => {
-      setIsAuthenticated(localStorage.getItem("token") !== null);
-    };
-    
-    // Verificar quando o estado de localStorage é alterado
-    window.addEventListener("storage", checkAuth);
-    
-    // Também verificar em cada alteração de rota
-    checkAuth();
-    
-    return () => window.removeEventListener("storage", checkAuth);
-  }, [location]);
+  const isAuthenticated = !!user;
   
   // Determinar qual conteúdo exibir com base na autenticação e rota
   const renderContent = () => {
+    // Se ainda estiver carregando, mostrar indicador de carregamento
+    if (isLoading) {
+      return (
+        <div className="flex items-center justify-center h-screen">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+        </div>
+      );
+    }
+    
     // Rota do formulário público (não requer autenticação)
     if (location.startsWith("/form/")) {
       return (
@@ -103,8 +102,10 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <Router />
-      <Toaster />
+      <SupabaseAuthProvider>
+        <Router />
+        <Toaster />
+      </SupabaseAuthProvider>
     </QueryClientProvider>
   );
 }
