@@ -1,7 +1,20 @@
+/**
+ * Rota para verificar o status das tabelas no Supabase
+ * Esta rota verifica quais tabelas existem e quais precisam ser criadas
+ */
+
 import { Request, Response } from 'express';
 import { createClient } from '@supabase/supabase-js';
+import {
+  setupTablesSQL,
+  checkTablesSQL,
+  createDefaultOrganizationSQL,
+  createDefaultProductsSQL,
+  createDefaultConveniosSQL,
+  createDefaultBanksSQL
+} from '../services/setup-supabase-sql';
 
-// Lista de tabelas esperadas no Supabase
+// Lista de tabelas esperadas
 const EXPECTED_TABLES = [
   'organizations',
   'users',
@@ -14,295 +27,156 @@ const EXPECTED_TABLES = [
   'form_submissions'
 ];
 
-/**
- * Verifica se todas as tabelas necessárias estão presentes no Supabase
- * e retorna instruções para criar as que estão faltando
- */
 export async function checkSupabaseTables(req: Request, res: Response) {
   try {
-    // Verificar se as variáveis de ambiente estão configuradas
+    // Verificar se temos as variáveis de ambiente
     if (!process.env.SUPABASE_URL || !process.env.SUPABASE_KEY) {
       return res.status(500).json({
-        message: 'Configuração do Supabase incompleta',
-        error: 'SUPABASE_URL e SUPABASE_KEY são necessários',
-        setup: {
-          required: ['SUPABASE_URL', 'SUPABASE_KEY'],
-          instructions: 'Adicione as variáveis de ambiente SUPABASE_URL e SUPABASE_KEY no arquivo .env'
-        }
+        error: 'Configuração do Supabase ausente. Verifique SUPABASE_URL e SUPABASE_KEY no .env',
+        status: 'error'
       });
     }
 
-    // Conectar ao Supabase
+    // Inicializar cliente Supabase
     const supabase = createClient(
       process.env.SUPABASE_URL,
       process.env.SUPABASE_KEY
     );
 
-    // Obter lista de tabelas existentes
-    // Primeiro método: tentar consultar diretamente as tabelas do sistema pg_tables
-    let tablesData;
-    let error;
-    
-    try {
-      const result = await supabase
-        .from('pg_tables')
-        .select('tablename')
-        .eq('schemaname', 'public');
-        
-      tablesData = result.data;
-      error = result.error;
-      
-      // Se esse método falhar, vamos usar um método alternativo
-      if (error) {
-        console.log('Método primário falhou, tentando método alternativo para listar tabelas');
-        
-        // Método alternativo: tentar consultar cada tabela individualmente
-        tablesData = [];
-        
-        for (const tableName of EXPECTED_TABLES) {
-          try {
-            // Tentar obter um registro da tabela para ver se ela existe
-            const { error: tableError } = await supabase
-              .from(tableName)
-              .select('*')
-              .limit(1);
-            
-            // Se não houver erro, a tabela existe
-            if (!tableError || tableError.code !== 'PGRST116') {
-              tablesData.push({ tablename: tableName });
-            }
-          } catch (e) {
-            // Tabela não existe ou não é acessível
-            console.log(`Tabela ${tableName} não existe ou não é acessível`);
-          }
-        }
-        
-        // Limpar o erro, pois usamos um método alternativo
-        error = null;
-      }
-    } catch (e) {
-      console.error('Erro ao verificar tabelas:', e);
-      error = {
-        message: 'Erro ao verificar tabelas no Supabase',
-        details: e instanceof Error ? e.message : String(e)
-      };
-    }
+    // Verificar existência das tabelas esperadas
+    const { data: existingTablesData, error: tablesError } = await supabase.rpc('sql', {
+      query: checkTablesSQL
+    });
 
-    if (error) {
-      console.error('Erro ao verificar tabelas:', error);
+    if (tablesError) {
       return res.status(500).json({
-        message: 'Erro ao verificar tabelas no Supabase',
-        error: error.message,
-        setup: {
-          instructions: 'Verifique se você está usando as credenciais corretas do Supabase e tem permissão para acessar informações sobre tabelas.'
-        }
+        error: `Erro ao verificar tabelas: ${tablesError.message}`,
+        status: 'error',
+        setupSql: setupTablesSQL
       });
     }
 
-    // Extrair nomes das tabelas
-    const existingTables = tablesData?.map(t => t.tablename) || [];
-    
-    // Encontrar tabelas que estão faltando
-    const missingTables = EXPECTED_TABLES.filter(t => !existingTables.includes(t));
+    // Mapear tabelas existentes
+    const existingTables = existingTablesData || [];
+    const tableMap = existingTables.reduce((map: any, table: any) => {
+      map[table.table_name] = table.columns;
+      return map;
+    }, {});
 
-    // Se todas as tabelas existirem, retorne OK
+    // Verificar quais tabelas estão faltando
+    const missingTables = EXPECTED_TABLES.filter(t => !tableMap[t]);
+
+    // Para cada tabela existente, verificar se a estrutura está correta
+    const tablesWithIssues: any[] = [];
+    const existingTablesStatus = EXPECTED_TABLES.map(tableName => {
+      const exists = tableMap[tableName] ? true : false;
+      let status = exists ? 'ok' : 'missing';
+      
+      // Adicionar detalhes para tabelas com problemas estruturais
+      if (exists) {
+        // Se necessário, adicionar validação de estrutura no futuro
+        // Por exemplo, verificar se todas as colunas esperadas estão presentes
+      }
+      
+      if (status !== 'ok') {
+        tablesWithIssues.push({
+          name: tableName,
+          status,
+          columns: tableMap[tableName] || []
+        });
+      }
+      
+      return {
+        name: tableName,
+        status,
+        columns: tableMap[tableName] || []
+      };
+    });
+
+    // Verificar se há dados básicos
+    const dataStatus = {
+      organizations: { count: 0, exists: false },
+      products: { count: 0, exists: false },
+      convenios: { count: 0, exists: false },
+      banks: { count: 0, exists: false }
+    };
+
+    // Verificar dados apenas se todas as tabelas existirem
     if (missingTables.length === 0) {
-      return res.status(200).json({
-        message: 'Todas as tabelas necessárias estão presentes no Supabase',
-        status: 'OK',
-        tables: EXPECTED_TABLES
-      });
+      // Verificar organizações
+      const { count: orgCount, error: orgError } = await supabase
+        .from('organizations')
+        .select('*', { count: 'exact', head: true });
+      
+      if (!orgError) {
+        dataStatus.organizations.count = orgCount || 0;
+        dataStatus.organizations.exists = (orgCount || 0) > 0;
+      }
+      
+      // Verificar produtos
+      const { count: prodCount, error: prodError } = await supabase
+        .from('products')
+        .select('*', { count: 'exact', head: true });
+      
+      if (!prodError) {
+        dataStatus.products.count = prodCount || 0;
+        dataStatus.products.exists = (prodCount || 0) > 0;
+      }
+      
+      // Verificar convênios
+      const { count: convCount, error: convError } = await supabase
+        .from('convenios')
+        .select('*', { count: 'exact', head: true });
+      
+      if (!convError) {
+        dataStatus.convenios.count = convCount || 0;
+        dataStatus.convenios.exists = (convCount || 0) > 0;
+      }
+      
+      // Verificar bancos
+      const { count: bankCount, error: bankError } = await supabase
+        .from('banks')
+        .select('*', { count: 'exact', head: true });
+      
+      if (!bankError) {
+        dataStatus.banks.count = bankCount || 0;
+        dataStatus.banks.exists = (bankCount || 0) > 0;
+      }
     }
 
-    // Se faltarem tabelas, retorne instruções para criá-las
-    const sqlStatements = generateCreateTablesSql(missingTables);
+    // Determinar o status geral
+    const allTablesExist = missingTables.length === 0;
+    const allDataExists = dataStatus.organizations.exists && 
+                          dataStatus.products.exists && 
+                          dataStatus.convenios.exists && 
+                          dataStatus.banks.exists;
+    
+    const overallStatus = allTablesExist 
+      ? (allDataExists ? 'ok' : 'missing_data') 
+      : 'missing_tables';
 
-    res.status(200).json({
-      message: 'Algumas tabelas necessárias estão faltando no Supabase',
-      status: 'INCOMPLETE',
-      missingTables,
-      setup: {
-        instructions: 'Acesse o console do Supabase, vá para a seção SQL Editor e execute os seguintes comandos SQL para criar as tabelas faltantes:',
-        sqlStatements
+    // Preparar resposta com instruções SQL
+    return res.status(200).json({
+      status: overallStatus,
+      missing_tables: missingTables,
+      tables_status: existingTablesStatus,
+      tables_with_issues: tablesWithIssues,
+      data_status: dataStatus,
+      setup_sql: {
+        tables: setupTablesSQL,
+        organization: createDefaultOrganizationSQL,
+        products: createDefaultProductsSQL,
+        convenios: createDefaultConveniosSQL,
+        banks: createDefaultBanksSQL
       }
     });
-  } catch (error) {
+    
+  } catch (error: any) {
     console.error('Erro ao verificar tabelas do Supabase:', error);
-    res.status(500).json({
-      message: 'Erro ao verificar tabelas do Supabase',
-      error: error instanceof Error ? error.message : String(error)
+    return res.status(500).json({
+      error: `Erro interno ao verificar tabelas: ${error.message}`,
+      status: 'error',
+      setupSql: setupTablesSQL
     });
   }
-}
-
-/**
- * Gera comandos SQL para criar as tabelas faltantes
- */
-function generateCreateTablesSql(missingTables: string[]): { [key: string]: string } {
-  const sqlCommands: { [key: string]: string } = {};
-  
-  // SQL para criar cada tabela faltante
-  for (const table of missingTables) {
-    switch (table) {
-      case 'organizations':
-        sqlCommands.organizations = `-- Criar tabela de organizações
-CREATE TABLE IF NOT EXISTS organizations (
-  id SERIAL PRIMARY KEY,
-  name TEXT NOT NULL,
-  description TEXT,
-  address TEXT,
-  phone TEXT,
-  email TEXT,
-  website TEXT,
-  logo TEXT,
-  "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);`;
-        break;
-        
-      case 'users':
-        sqlCommands.users = `-- Criar tabela de usuários
-CREATE TABLE IF NOT EXISTS users (
-  id SERIAL PRIMARY KEY,
-  email TEXT UNIQUE NOT NULL,
-  password TEXT NOT NULL,
-  name TEXT NOT NULL,
-  phone TEXT,
-  role TEXT CHECK (role IN ('agent', 'manager', 'superadmin')) NOT NULL DEFAULT 'agent',
-  sector TEXT CHECK (sector IN ('Comercial', 'Operacional', 'Financeiro')),
-  active BOOLEAN DEFAULT TRUE,
-  "profilePicture" TEXT,
-  "organizationId" INTEGER REFERENCES organizations(id),
-  "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);`;
-        break;
-        
-      case 'clients':
-        sqlCommands.clients = `-- Criar tabela de clientes
-CREATE TABLE IF NOT EXISTS clients (
-  id SERIAL PRIMARY KEY,
-  name TEXT NOT NULL,
-  email TEXT,
-  phone TEXT,
-  cpf TEXT,
-  "birthDate" DATE,
-  contact TEXT,
-  company TEXT,
-  "convenioId" INTEGER,
-  "createdById" INTEGER REFERENCES users(id),
-  "organizationId" INTEGER REFERENCES organizations(id),
-  "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);`;
-        break;
-        
-      case 'products':
-        sqlCommands.products = `-- Criar tabela de produtos
-CREATE TABLE IF NOT EXISTS products (
-  id SERIAL PRIMARY KEY,
-  name TEXT NOT NULL,
-  description TEXT,
-  "maxValue" DECIMAL(10,2)
-);
-
--- Inserir produtos padrão
-INSERT INTO products (name, description, "maxValue")
-VALUES 
-  ('Novo empréstimo', 'Empréstimo para novos clientes', 50000),
-  ('Refinanciamento', 'Refinanciamento de empréstimos existentes', 20000),
-  ('Portabilidade', 'Transferência de empréstimo de outra instituição', 100000),
-  ('Cartão de Crédito', 'Cartão de crédito com limite pré-aprovado', 10000),
-  ('Saque FGTS', 'Antecipação do saque-aniversário do FGTS', 5000)
-ON CONFLICT (id) DO NOTHING;`;
-        break;
-        
-      case 'convenios':
-        sqlCommands.convenios = `-- Criar tabela de convênios
-CREATE TABLE IF NOT EXISTS convenios (
-  id SERIAL PRIMARY KEY,
-  name TEXT NOT NULL,
-  description TEXT
-);
-
--- Inserir convênios padrão
-INSERT INTO convenios (name, description)
-VALUES 
-  ('Beneficiário do INSS', 'Aposentados e pensionistas do INSS'),
-  ('Servidor Público', 'Funcionários públicos federais, estaduais e municipais'),
-  ('LOAS/BPC', 'Beneficiários de programas assistenciais'),
-  ('Carteira assinada CLT', 'Trabalhadores com carteira assinada')
-ON CONFLICT (id) DO NOTHING;`;
-        break;
-        
-      case 'banks':
-        sqlCommands.banks = `-- Criar tabela de bancos
-CREATE TABLE IF NOT EXISTS banks (
-  id SERIAL PRIMARY KEY,
-  name TEXT NOT NULL,
-  code TEXT
-);
-
--- Inserir bancos padrão
-INSERT INTO banks (name, code)
-VALUES 
-  ('BANRISUL', '041'),
-  ('BMG', '318'),
-  ('C6 BANK', '336'),
-  ('CAIXA ECONÔMICA FEDERAL', '104'),
-  ('DAYCOVAL', '707'),
-  ('FACTA', '370'),
-  ('ITAU', '341'),
-  ('MERCANTIL', '389'),
-  ('OLÉ CONSIGNADO', '169'),
-  ('PAN', '623'),
-  ('SAFRA', '422')
-ON CONFLICT (id) DO NOTHING;`;
-        break;
-        
-      case 'proposals':
-        sqlCommands.proposals = `-- Criar tabela de propostas
-CREATE TABLE IF NOT EXISTS proposals (
-  id SERIAL PRIMARY KEY,
-  "clientId" INTEGER REFERENCES clients(id) NOT NULL,
-  "productId" INTEGER REFERENCES products(id) NOT NULL,
-  "convenioId" INTEGER REFERENCES convenios(id),
-  "bankId" INTEGER REFERENCES banks(id),
-  value DECIMAL(10,2) NOT NULL,
-  installments INTEGER NOT NULL,
-  status TEXT DEFAULT 'pending',
-  "createdById" INTEGER REFERENCES users(id),
-  "organizationId" INTEGER REFERENCES organizations(id),
-  "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);`;
-        break;
-        
-      case 'form_templates':
-        sqlCommands.form_templates = `-- Criar tabela de modelos de formulário
-CREATE TABLE IF NOT EXISTS form_templates (
-  id SERIAL PRIMARY KEY,
-  name TEXT NOT NULL,
-  description TEXT,
-  fields JSONB NOT NULL,
-  "organizationId" INTEGER REFERENCES organizations(id),
-  "createdById" INTEGER REFERENCES users(id),
-  active BOOLEAN DEFAULT TRUE,
-  "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);`;
-        break;
-        
-      case 'form_submissions':
-        sqlCommands.form_submissions = `-- Criar tabela de submissões de formulário
-CREATE TABLE IF NOT EXISTS form_submissions (
-  id SERIAL PRIMARY KEY,
-  "templateId" INTEGER REFERENCES form_templates(id) NOT NULL,
-  data JSONB NOT NULL,
-  status TEXT DEFAULT 'pending',
-  "processedById" INTEGER REFERENCES users(id),
-  "organizationId" INTEGER REFERENCES organizations(id),
-  "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);`;
-        break;
-    }
-  }
-  
-  return sqlCommands;
 }

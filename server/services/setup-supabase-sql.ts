@@ -1,425 +1,283 @@
-import { createClient } from '@supabase/supabase-js';
-import { UserRole } from '@shared/schema';
-import dotenv from 'dotenv';
+/**
+ * SQL para criar as tabelas no Supabase
+ * Este script gera o SQL necessário para criar as tabelas no banco de dados Supabase
+ */
 
-// Carregar variáveis de ambiente
-dotenv.config();
+export const setupTablesSQL = `
+-- Organizações
+CREATE TABLE IF NOT EXISTS organizations (
+  id SERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  cnpj TEXT,
+  address TEXT,
+  phone TEXT,
+  email TEXT,
+  website TEXT,
+  logo_url TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
 
-// Configuração do Supabase
-const supabaseUrl = process.env.SUPABASE_URL || '';
-const supabaseKey = process.env.SUPABASE_KEY || '';
+-- Usuários
+-- Nota: Tabela users depende da tabela auth.users do Supabase que já existe
+CREATE TABLE IF NOT EXISTS users (
+  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  name TEXT,
+  email TEXT UNIQUE,
+  role TEXT CHECK (role IN ('superadmin', 'manager', 'agent')),
+  sector TEXT,
+  organization_id INTEGER REFERENCES organizations(id),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
 
-if (!supabaseUrl || !supabaseKey) {
-  console.error('Variáveis de ambiente SUPABASE_URL e SUPABASE_KEY são necessárias');
-  process.exit(1);
-}
+-- Convênios
+CREATE TABLE IF NOT EXISTS convenios (
+  id SERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  price TEXT,
+  description TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
 
-// Cliente do Supabase
-const supabase = createClient(supabaseUrl, supabaseKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false
-  }
-});
+-- Produtos
+CREATE TABLE IF NOT EXISTS products (
+  id SERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  price TEXT,
+  description TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
 
-// Função para executar consultas SQL diretamente
-async function executeSQL(query: string): Promise<any> {
-  const { data, error } = await supabase.rpc('exec_sql', { sql: query });
-  
-  if (error) {
-    console.error('Erro ao executar SQL:', error);
-    return { success: false, error };
-  }
-  
-  return { success: true, data };
-}
+-- Bancos
+CREATE TABLE IF NOT EXISTS banks (
+  id SERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  price TEXT,
+  description TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Clientes
+CREATE TABLE IF NOT EXISTS clients (
+  id SERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  email TEXT,
+  phone TEXT,
+  cpf TEXT,
+  birth_date TEXT,
+  contact TEXT,
+  company TEXT,
+  convenio_id INTEGER REFERENCES convenios(id),
+  created_by_id UUID REFERENCES users(id),
+  organization_id INTEGER REFERENCES organizations(id),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Propostas
+CREATE TABLE IF NOT EXISTS proposals (
+  id SERIAL PRIMARY KEY,
+  client_id INTEGER REFERENCES clients(id),
+  product_id INTEGER REFERENCES products(id),
+  convenio_id INTEGER REFERENCES convenios(id),
+  bank_id INTEGER REFERENCES banks(id),
+  value TEXT,
+  installments INTEGER,
+  status TEXT,
+  notes TEXT,
+  created_by_id UUID REFERENCES users(id),
+  organization_id INTEGER REFERENCES organizations(id),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Modelos de Formulários
+CREATE TABLE IF NOT EXISTS form_templates (
+  id SERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  description TEXT,
+  fields JSONB,
+  is_active BOOLEAN DEFAULT TRUE,
+  created_by_id UUID REFERENCES users(id),
+  organization_id INTEGER REFERENCES organizations(id),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Submissões de Formulários
+CREATE TABLE IF NOT EXISTS form_submissions (
+  id SERIAL PRIMARY KEY,
+  template_id INTEGER REFERENCES form_templates(id),
+  form_data JSONB,
+  client_id INTEGER REFERENCES clients(id),
+  status TEXT,
+  processed_by_id UUID REFERENCES users(id),
+  processed_at TIMESTAMP WITH TIME ZONE,
+  organization_id INTEGER REFERENCES organizations(id),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Adicionar políticas de segurança RLS (Row Level Security)
+-- Apenas ative estas políticas após criar e entender bem o impacto delas
+
+-- Política para organizações: apenas superadmins podem gerenciar
+ALTER TABLE organizations ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY select_organizations ON organizations
+  FOR SELECT USING (
+    auth.role() = 'authenticated'
+  );
+
+CREATE POLICY insert_organizations ON organizations
+  FOR INSERT WITH CHECK (
+    auth.jwt() ->> 'role' = 'superadmin'
+  );
+
+CREATE POLICY update_organizations ON organizations
+  FOR UPDATE USING (
+    auth.jwt() ->> 'role' = 'superadmin'
+  );
+
+CREATE POLICY delete_organizations ON organizations
+  FOR DELETE USING (
+    auth.jwt() ->> 'role' = 'superadmin'
+  );
+
+-- Política para usuários: cada usuário vê apenas sua organização
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY select_own_organization_users ON users
+  FOR SELECT USING (
+    -- Superadmin vê todos
+    (auth.jwt() ->> 'role' = 'superadmin') OR
+    -- Manager vê apenas usuários da sua organização
+    (auth.jwt() ->> 'role' = 'manager' AND organization_id = (auth.jwt() ->> 'organization_id')::integer) OR
+    -- Agente vê apenas ele mesmo
+    (id = auth.uid())
+  );
+
+-- E assim por diante para cada tabela...
+`;
 
 /**
- * Configurar tabelas no Supabase
+ * SQL para consultar tabelas e colunas existentes
  */
-export async function setupSupabaseTables() {
-  try {
-    console.log('Iniciando configuração das tabelas no Supabase...');
-    
-    // 1. Criar tabela de organizações
-    console.log('Criando tabela organizations...');
-    await executeSQL(`
-      CREATE TABLE IF NOT EXISTS organizations (
-        id SERIAL PRIMARY KEY,
-        name TEXT NOT NULL,
-        cnpj TEXT,
-        address TEXT,
-        phone TEXT,
-        email TEXT,
-        website TEXT,
-        logo_url TEXT,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-      );
-    `);
-    
-    // 2. Criar tabela de usuários com referência à autenticação do Supabase
-    console.log('Criando tabela users...');
-    await executeSQL(`
-      CREATE TABLE IF NOT EXISTS users (
-        id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-        name TEXT,
-        email TEXT UNIQUE,
-        role TEXT CHECK (role IN ('superadmin', 'manager', 'agent')),
-        sector TEXT,
-        organization_id INTEGER REFERENCES organizations(id),
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-      );
-    `);
-    
-    // 3. Criar tabela de clientes
-    console.log('Criando tabela clients...');
-    await executeSQL(`
-      CREATE TABLE IF NOT EXISTS clients (
-        id SERIAL PRIMARY KEY,
-        name TEXT NOT NULL,
-        email TEXT,
-        phone TEXT,
-        cpf TEXT,
-        birth_date TEXT,
-        contact TEXT,
-        company TEXT,
-        convenio_id INTEGER,
-        created_by_id UUID REFERENCES users(id),
-        organization_id INTEGER REFERENCES organizations(id),
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-      );
-    `);
-    
-    // 4. Criar tabela de produtos
-    console.log('Criando tabela products...');
-    await executeSQL(`
-      CREATE TABLE IF NOT EXISTS products (
-        id SERIAL PRIMARY KEY,
-        name TEXT NOT NULL,
-        price TEXT,
-        description TEXT,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-      );
-    `);
-    
-    // 5. Criar tabela de convênios
-    console.log('Criando tabela convenios...');
-    await executeSQL(`
-      CREATE TABLE IF NOT EXISTS convenios (
-        id SERIAL PRIMARY KEY,
-        name TEXT NOT NULL,
-        price TEXT,
-        description TEXT,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-      );
-    `);
-    
-    // 6. Criar tabela de bancos
-    console.log('Criando tabela banks...');
-    await executeSQL(`
-      CREATE TABLE IF NOT EXISTS banks (
-        id SERIAL PRIMARY KEY,
-        name TEXT NOT NULL,
-        price TEXT,
-        description TEXT,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-      );
-    `);
-    
-    // 7. Criar tabela de propostas
-    console.log('Criando tabela proposals...');
-    await executeSQL(`
-      CREATE TABLE IF NOT EXISTS proposals (
-        id SERIAL PRIMARY KEY,
-        client_id INTEGER REFERENCES clients(id),
-        product_id INTEGER REFERENCES products(id),
-        convenio_id INTEGER REFERENCES convenios(id),
-        bank_id INTEGER REFERENCES banks(id),
-        value TEXT,
-        installments INTEGER,
-        status TEXT,
-        notes TEXT,
-        created_by_id UUID REFERENCES users(id),
-        organization_id INTEGER REFERENCES organizations(id),
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-      );
-    `);
-    
-    // 8. Criar tabela de templates de formulários
-    console.log('Criando tabela form_templates...');
-    await executeSQL(`
-      CREATE TABLE IF NOT EXISTS form_templates (
-        id SERIAL PRIMARY KEY,
-        name TEXT NOT NULL,
-        description TEXT,
-        fields JSONB,
-        is_active BOOLEAN DEFAULT TRUE,
-        created_by_id UUID REFERENCES users(id),
-        organization_id INTEGER REFERENCES organizations(id),
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-      );
-    `);
-    
-    // 9. Criar tabela de submissões de formulários
-    console.log('Criando tabela form_submissions...');
-    await executeSQL(`
-      CREATE TABLE IF NOT EXISTS form_submissions (
-        id SERIAL PRIMARY KEY,
-        template_id INTEGER REFERENCES form_templates(id),
-        form_data JSONB,
-        client_id INTEGER REFERENCES clients(id),
-        status TEXT,
-        processed_by_id UUID REFERENCES users(id),
-        processed_at TIMESTAMP WITH TIME ZONE,
-        organization_id INTEGER REFERENCES organizations(id),
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-      );
-    `);
-    
-    console.log('Configuração das tabelas no Supabase concluída com sucesso.');
-    
-    // Criar organização padrão se não existir
-    console.log('Verificando se existe organização padrão...');
-    const { data: orgs, error: orgCheckError } = await supabase
-      .from('organizations')
-      .select('*')
-      .limit(1);
-      
-    if (orgCheckError) {
-      console.error('Erro ao verificar organizações:', orgCheckError);
-    } else if (!orgs || orgs.length === 0) {
-      console.log('Criando organização padrão...');
-      const { data: newOrg, error: newOrgError } = await supabase
-        .from('organizations')
-        .insert({
-          name: 'Organização Padrão',
-          cnpj: '12.345.678/0001-90',
-          address: 'Avenida Presidente Vargas, 1000',
-          phone: '(71) 3333-4444',
-          email: 'contato@organizacaopadrao.com',
-          website: 'www.organizacaopadrao.com',
-          logo_url: 'https://placehold.co/100x100'
-        })
-        .select()
-        .single();
-        
-      if (newOrgError) {
-        console.error('Erro ao criar organização padrão:', newOrgError);
-      } else {
-        console.log('Organização padrão criada com sucesso:', newOrg?.name);
-      }
-    } else {
-      console.log('Organização padrão já existe.');
-    }
-    
-    // Criar dados de teste
-    await createTestData();
-    
-  } catch (error) {
-    console.error('Erro na configuração das tabelas:', error);
-  }
-}
+export const checkTablesSQL = `
+SELECT
+  t.table_name,
+  ARRAY_AGG(
+    c.column_name || ' ' || 
+    c.data_type || 
+    CASE 
+      WHEN c.character_maximum_length IS NOT NULL THEN '(' || c.character_maximum_length || ')'
+      ELSE ''
+    END ||
+    CASE 
+      WHEN c.is_nullable = 'NO' THEN ' NOT NULL'
+      ELSE ''
+    END
+  ) AS columns
+FROM
+  information_schema.tables t
+JOIN
+  information_schema.columns c ON t.table_name = c.table_name
+WHERE
+  t.table_schema = 'public'
+  AND t.table_type = 'BASE TABLE'
+  AND t.table_name IN (
+    'organizations', 'users', 'clients', 'products', 
+    'convenios', 'banks', 'proposals', 
+    'form_templates', 'form_submissions'
+  )
+GROUP BY
+  t.table_name
+ORDER BY
+  t.table_name;
+`;
 
 /**
- * Criar dados de teste no Supabase
+ * SQL para criar uma organização padrão
  */
-async function createTestData() {
-  try {
-    console.log('Criando dados de teste...');
-    
-    // 1. Verificar se já existem bancos
-    const { data: banks, error: banksError } = await supabase
-      .from('banks')
-      .select('*')
-      .limit(1);
-      
-    if (banksError) {
-      console.error('Erro ao verificar bancos:', banksError);
-    } else if (!banks || banks.length === 0) {
-      console.log('Criando bancos de teste...');
-      
-      const bankData = [
-        { name: 'BANRISUL', price: 'R$ 2.500,00' },
-        { name: 'BMG', price: 'R$ 3.000,00' },
-        { name: 'C6 BANK', price: 'R$ 1.800,00' },
-        { name: 'CAIXA ECONÔMICA FEDERAL', price: 'R$ 2.000,00' },
-        { name: 'ITAÚ', price: 'R$ 4.500,00' },
-        { name: 'SAFRA', price: 'R$ 2.800,00' },
-        { name: 'SANTANDER', price: 'R$ 3.200,00' },
-        { name: 'BRADESCO', price: 'R$ 3.500,00' },
-        { name: 'BANCO DO BRASIL', price: 'R$ 3.000,00' },
-        { name: 'NUBANK', price: 'R$ 1.500,00' }
-      ];
-      
-      const { data: newBanks, error: newBanksError } = await supabase
-        .from('banks')
-        .insert(bankData)
-        .select();
-        
-      if (newBanksError) {
-        console.error('Erro ao criar bancos de teste:', newBanksError);
-      } else {
-        console.log(`${newBanks?.length || 0} bancos de teste criados.`);
-      }
-    } else {
-      console.log('Bancos já existem, pulando criação.');
-    }
-    
-    // 2. Verificar se já existem convênios
-    const { data: convenios, error: conveniosError } = await supabase
-      .from('convenios')
-      .select('*')
-      .limit(1);
-      
-    if (conveniosError) {
-      console.error('Erro ao verificar convênios:', conveniosError);
-    } else if (!convenios || convenios.length === 0) {
-      console.log('Criando convênios de teste...');
-      
-      const convenioData = [
-        { name: 'Beneficiário do INSS', price: 'R$ 3.000,00' },
-        { name: 'Servidor Público', price: 'R$ 5.000,00' },
-        { name: 'LOAS/BPC', price: 'R$ 1.500,00' },
-        { name: 'Carteira assinada CLT', price: 'R$ 4.000,00' }
-      ];
-      
-      const { data: newConvenios, error: newConveniosError } = await supabase
-        .from('convenios')
-        .insert(convenioData)
-        .select();
-        
-      if (newConveniosError) {
-        console.error('Erro ao criar convênios de teste:', newConveniosError);
-      } else {
-        console.log(`${newConvenios?.length || 0} convênios de teste criados.`);
-      }
-    } else {
-      console.log('Convênios já existem, pulando criação.');
-    }
-    
-    // 3. Verificar se já existem produtos
-    const { data: products, error: productsError } = await supabase
-      .from('products')
-      .select('*')
-      .limit(1);
-      
-    if (productsError) {
-      console.error('Erro ao verificar produtos:', productsError);
-    } else if (!products || products.length === 0) {
-      console.log('Criando produtos de teste...');
-      
-      const productData = [
-        { name: 'Novo empréstimo', price: 'R$ 1.000,00' },
-        { name: 'Refinanciamento', price: 'R$ 5.000,00' },
-        { name: 'Portabilidade', price: 'R$ 2.000,00' },
-        { name: 'Cartão de Crédito', price: 'R$ 500,00' },
-        { name: 'Saque FGTS', price: 'R$ 1.200,00' }
-      ];
-      
-      const { data: newProducts, error: newProductsError } = await supabase
-        .from('products')
-        .insert(productData)
-        .select();
-        
-      if (newProductsError) {
-        console.error('Erro ao criar produtos de teste:', newProductsError);
-      } else {
-        console.log(`${newProducts?.length || 0} produtos de teste criados.`);
-      }
-    } else {
-      console.log('Produtos já existem, pulando criação.');
-    }
-    
-    // Verificar usuário administrador
-    const { data: orgData, error: orgError } = await supabase
-      .from('organizations')
-      .select('id')
-      .limit(1)
-      .single();
-      
-    if (orgError) {
-      console.error('Erro ao buscar organização:', orgError);
-      return;
-    }
-    
-    // Verificar se já existe um usuário admin
-    const { data: users, error: usersError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('role', UserRole.SUPERADMIN)
-      .limit(1);
-      
-    if (usersError) {
-      console.error('Erro ao verificar usuários:', usersError);
-    } else if (!users || users.length === 0) {
-      console.log('Criando usuário administrador de teste...');
-      
-      try {
-        // Criar usuário na autenticação do Supabase
-        const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
-          email: 'admin@example.com',
-          password: 'Admin@123',
-          email_confirm: true,
-          user_metadata: {
-            name: 'Administrador',
-            role: UserRole.SUPERADMIN,
-            organization_id: orgData.id
-          }
-        });
-        
-        if (authError) {
-          console.error('Erro ao criar usuário na autenticação do Supabase:', authError);
-        } else if (authUser?.user) {
-          // Criar perfil do usuário
-          const { data: newUser, error: newUserError } = await supabase
-            .from('users')
-            .insert({
-              id: authUser.user.id,
-              name: 'Administrador',
-              email: 'admin@example.com',
-              role: UserRole.SUPERADMIN,
-              sector: 'Administração',
-              organization_id: orgData.id
-            })
-            .select()
-            .single();
-            
-          if (newUserError) {
-            console.error('Erro ao criar perfil do usuário administrador:', newUserError);
-          } else {
-            console.log('Usuário administrador criado com sucesso:', newUser.email);
-          }
-        }
-      } catch (err) {
-        console.error('Erro ao criar usuário administrador:', err);
-      }
-    } else {
-      console.log('Usuário administrador já existe, pulando criação.');
-    }
-    
-    console.log('Criação de dados de teste concluída.');
-  } catch (error) {
-    console.error('Erro na criação de dados de teste:', error);
-  }
-}
+export const createDefaultOrganizationSQL = `
+INSERT INTO organizations (name, cnpj, address, phone, email, website, logo_url)
+VALUES (
+  'Organização Padrão',
+  '12.345.678/0001-90',
+  'Avenida Principal, 1000',
+  '(71) 3333-4444',
+  'contato@organizacaopadrao.com',
+  'www.organizacaopadrao.com',
+  'https://placehold.co/100x100'
+)
+RETURNING id;
+`;
 
-// Função para executar o script diretamente
-export async function main() {
-  try {
-    await setupSupabaseTables();
-    console.log('Script concluído com sucesso.');
-    return { success: true };
-  } catch (error) {
-    console.error('Erro na execução do script:', error);
-    return { success: false, error };
-  }
-}
+/**
+ * SQL para criar produtos padrão
+ */
+export const createDefaultProductsSQL = `
+INSERT INTO products (name, price, description)
+VALUES 
+  ('Novo empréstimo', 'R$ 50.000,00', 'Empréstimo para novos clientes'),
+  ('Refinanciamento', 'R$ 20.000,00', 'Refinanciamento de dívidas existentes'),
+  ('Portabilidade', 'R$ 100.000,00', 'Transferência de dívidas de outras instituições'),
+  ('Cartão de Crédito', 'R$ 10.000,00', 'Limite de cartão de crédito'),
+  ('Saque FGTS', 'R$ 5.000,00', 'Antecipação do saque aniversário do FGTS')
+RETURNING id;
+`;
+
+/**
+ * SQL para criar convênios padrão
+ */
+export const createDefaultConveniosSQL = `
+INSERT INTO convenios (name, price, description)
+VALUES 
+  ('Beneficiário do INSS', 'R$ 3.000,00', 'Aposentados e pensionistas do INSS'),
+  ('Servidor Público', 'R$ 5.000,00', 'Funcionários públicos federais, estaduais e municipais'),
+  ('LOAS/BPC', 'R$ 1.500,00', 'Beneficiários de prestação continuada'),
+  ('Carteira assinada CLT', 'R$ 4.000,00', 'Trabalhadores com carteira assinada')
+RETURNING id;
+`;
+
+/**
+ * SQL para criar bancos padrão
+ */
+export const createDefaultBanksSQL = `
+INSERT INTO banks (name, price, description)
+VALUES 
+  ('BANRISUL', 'R$ 2.500,00', 'Banco do Estado do Rio Grande do Sul'),
+  ('BMG', 'R$ 3.000,00', 'Banco de Minas Gerais'),
+  ('C6 BANK', 'R$ 1.800,00', 'Banco digital'),
+  ('CAIXA ECONÔMICA FEDERAL', 'R$ 2.000,00', 'Banco federal'),
+  ('ITAÚ', 'R$ 4.500,00', 'Banco privado'),
+  ('SAFRA', 'R$ 2.800,00', 'Banco privado'),
+  ('SANTANDER', 'R$ 3.200,00', 'Banco internacional'),
+  ('BRADESCO', 'R$ 3.500,00', 'Banco privado'),
+  ('BANCO DO BRASIL', 'R$ 3.000,00', 'Banco federal'),
+  ('NUBANK', 'R$ 1.500,00', 'Banco digital')
+RETURNING id;
+`;
+
+/**
+ * SQL para criar a função que permite consultar as colunas de uma tabela
+ */
+export const createGetTableColumnsSQL = `
+CREATE OR REPLACE FUNCTION get_table_columns(p_table_name TEXT)
+RETURNS TABLE (column_name TEXT, data_type TEXT, is_nullable BOOLEAN)
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  RETURN QUERY
+  SELECT c.column_name::TEXT, c.data_type::TEXT, (c.is_nullable = 'YES')::BOOLEAN
+  FROM information_schema.columns c
+  WHERE c.table_schema = 'public'
+  AND c.table_name = p_table_name;
+END;
+$$;
+`;
