@@ -1,0 +1,80 @@
+-- Para ser executado no painel SQL do Supabase
+
+-- Criar tabela de perfis de usuário
+CREATE TABLE IF NOT EXISTS user_profiles (
+  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  name VARCHAR(255),
+  role VARCHAR(50) DEFAULT 'agent',
+  sector VARCHAR(50),
+  organization_id INTEGER,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Adicionar políticas RLS para a tabela de perfis
+ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
+
+-- Política para permitir que usuários vejam seus próprios perfis
+CREATE POLICY "Users can view their own profile"
+  ON user_profiles
+  FOR SELECT
+  USING (auth.uid() = id);
+
+-- Política para permitir que usuários atualizem seus próprios perfis
+CREATE POLICY "Users can update their own profile"
+  ON user_profiles
+  FOR UPDATE
+  USING (auth.uid() = id);
+
+-- Função de trigger para atualizar o timestamp 'updated_at'
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = CURRENT_TIMESTAMP;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger para atualizar o timestamp 'updated_at'
+CREATE TRIGGER update_user_profiles_updated_at
+  BEFORE UPDATE ON user_profiles
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+-- Criar política para permitir inserção por usuários autenticados
+CREATE POLICY "Users can insert their own profile"
+  ON user_profiles
+  FOR INSERT
+  WITH CHECK (auth.uid() = id);
+
+-- Para permitir acesso a todos os perfis para administradores
+-- (isso será necessário ajustar conforme suas necessidades específicas)
+CREATE POLICY "Admins can view all profiles"
+  ON user_profiles
+  FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM user_profiles
+      WHERE id = auth.uid() AND role = 'superadmin'
+    )
+  );
+
+-- Política para permitir que gerentes vejam perfis em sua organização
+CREATE POLICY "Managers can view profiles in their organization"
+  ON user_profiles
+  FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM user_profiles AS up
+      WHERE up.id = auth.uid() 
+      AND up.role = 'manager'
+      AND up.organization_id = user_profiles.organization_id
+    )
+  );
+
+-- Habilitar acesso via anon key para operações específicas
+-- Isso é necessário para permitir o registro e login
+CREATE POLICY "Anyone can insert a new profile during registration"
+  ON user_profiles
+  FOR INSERT
+  WITH CHECK (true);  -- Será restrito pelo trigger ou pelo código da aplicação

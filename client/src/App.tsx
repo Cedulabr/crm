@@ -16,6 +16,7 @@ import Layout from "@/components/layout/layout";
 import { FormTemplateEditor } from "@/components/forms/form-template-editor";
 import PublicForm from "@/components/forms/public-form";
 import { SupabaseAuthProvider, useSupabaseAuth } from "./hooks/use-supabase-auth";
+import { useSupabaseProfile } from "./hooks/use-supabase-profile";
 
 // Componente de proteção de rota para verificar se o usuário está autenticado
 function PrivateRoute({ component: Component, ...rest }: any) {
