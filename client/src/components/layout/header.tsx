@@ -15,6 +15,7 @@ import {
 import { LogOut, Settings, User } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { SmartSearch } from "@/components/smart-search/smart-search";
+import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 
 type UserInfo = {
   id: number;
@@ -45,18 +46,32 @@ export default function Header({ onMobileMenuToggle }: HeaderProps) {
     }
   }, []);
 
-  const handleLogout = () => {
-    // Limpar localStorage
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    
-    toast({
-      title: "Logout realizado com sucesso",
-      description: "Você foi desconectado(a) do sistema",
-    });
-    
-    // Redirecionar para a página de login
-    setLocation("/login");
+  const { logout } = useSupabaseAuth();
+  
+  const handleLogout = async () => {
+    try {
+      // Chamar o logout do Supabase
+      await logout();
+      
+      // Limpar também o localStorage
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      
+      toast({
+        title: "Logout realizado com sucesso",
+        description: "Você foi desconectado(a) do sistema",
+      });
+      
+      // Redirecionar para a página de login
+      setLocation("/login");
+    } catch (error) {
+      console.error("Erro ao fazer logout:", error);
+      toast({
+        title: "Erro ao desconectar",
+        description: "Não foi possível realizar o logout corretamente",
+        variant: "destructive"
+      });
+    }
   };
 
   // Obter as iniciais do nome do usuário

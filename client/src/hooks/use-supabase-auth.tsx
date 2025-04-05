@@ -118,12 +118,20 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
       await supabaseLogout();
       setUser(null);
       setSession(null);
+      
+      // Garantir que o localStorage também seja limpo
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      
+      // O redirecionamento será gerenciado pelo Router no App.tsx
+      // quando o usuário for definido como null
     } catch (error: any) {
       toast({
         title: "Erro ao sair",
         description: error.message || "Não foi possível fazer logout.",
         variant: "destructive",
       });
+      throw error; // Propagar o erro para ser tratado por quem chamou a função
     } finally {
       setIsLoading(false);
     }
