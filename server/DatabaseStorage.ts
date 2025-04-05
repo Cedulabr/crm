@@ -8,15 +8,15 @@ import {
   convenios,
   banks,
   proposals,
-  kanban,
   organizations,
+  formTemplates,
+  formSubmissions,
   // Tipos
   Client,
   Product,
   Convenio,
   Bank,
   Proposal,
-  Kanban,
   User,
   Organization,
   InsertClient,
@@ -24,13 +24,15 @@ import {
   InsertConvenio,
   InsertBank,
   InsertProposal,
-  InsertKanban,
   InsertUser,
   InsertOrganization,
   RegisterUser,
-  ClientWithKanban,
   ProposalWithDetails,
-  AuthData
+  AuthData,
+  FormTemplate,
+  FormSubmission,
+  InsertFormTemplate,
+  InsertFormSubmission
 } from '@shared/schema';
 import { randomBytes, scryptSync } from 'crypto';
 import jwt from 'jsonwebtoken';
@@ -188,16 +190,6 @@ export class DatabaseStorage implements IStorage {
     try {
       console.log('DB: Criando novo cliente', client);
       const [newClient] = await db.insert(clients).values(client).returning();
-      
-      // Criar entrada no kanban automaticamente
-      const kanbanEntry: InsertKanban = {
-        clientId: newClient.id,
-        column: 'lead',
-        position: await this.getNextPositionForColumn('lead')
-      };
-      
-      await this.createKanbanEntry(kanbanEntry);
-      
       return newClient;
     } catch (error) {
       console.error('Erro ao criar cliente:', error);
@@ -224,9 +216,6 @@ export class DatabaseStorage implements IStorage {
     try {
       console.log(`DB: Removendo cliente com ID ${id}`);
       
-      // Remover entradas de kanban relacionadas
-      await db.delete(kanban).where(eq(kanban.clientId, id));
-      
       // Remover propostas relacionadas
       await db.delete(proposals).where(eq(proposals.clientId, id));
       
@@ -237,46 +226,6 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error(`Erro ao remover cliente com ID ${id}:`, error);
       return false;
-    }
-  }
-
-  async getClientsWithKanban(): Promise<ClientWithKanban[]> {
-    try {
-      console.log('DB: Buscando clientes com informações de kanban');
-      
-      // Primeiro obtém todos os clientes
-      const allClients = await this.getClients();
-      
-      // Busca todas as entradas de kanban
-      const allKanban = await this.getKanbanEntries();
-      
-      // Obtém contagens de propostas por cliente
-      const proposalCountsQuery = db
-        .select({
-          clientId: proposals.clientId,
-          count: sql<number>`count(*)`,
-          totalValue: sql<string>`sum(cast(${proposals.value} as numeric))`
-        })
-        .from(proposals)
-        .groupBy(proposals.clientId);
-      
-      const proposalCounts = await proposalCountsQuery;
-      
-      // Mapeia os clientes com suas entradas de kanban e contagens
-      return allClients.map(client => {
-        const kanbanEntry = allKanban.find(k => k.clientId === client.id);
-        const countData = proposalCounts.find(p => p.clientId === client.id);
-        
-        return {
-          ...client,
-          kanban: kanbanEntry,
-          proposalCount: countData?.count || 0,
-          totalValue: countData?.totalValue || '0'
-        };
-      });
-    } catch (error) {
-      console.error('Erro ao buscar clientes com kanban:', error);
-      return [];
     }
   }
 
@@ -413,11 +362,6 @@ export class DatabaseStorage implements IStorage {
         .values({ ...proposal, status })
         .returning();
       
-      // Atualiza o Kanban do cliente para "negociacao" se o cliente tiver uma entrada
-      if (newProposal.clientId) {
-        await this.updateClientKanbanColumn(newProposal.clientId, 'negociacao');
-      }
-      
       return newProposal;
     } catch (error) {
       console.error('Erro ao criar proposta:', error);
@@ -434,27 +378,6 @@ export class DatabaseStorage implements IStorage {
         .where(eq(proposals.id, id))
         .returning();
         
-      // Se o status da proposta foi alterado, atualiza o kanban do cliente
-      if (proposal.status && updatedProposal.clientId) {
-        let kanbanColumn = 'lead';
-        
-        if (proposal.status === 'Nova proposta') {
-          kanbanColumn = 'lead';
-        } else if (proposal.status === 'Em andamento') {
-          kanbanColumn = 'qualificacao';
-        } else if (proposal.status === 'em_negociacao') {
-          kanbanColumn = 'negociacao';
-        } else if (proposal.status === 'em_analise') {
-          kanbanColumn = 'pendente';
-        } else if (proposal.status === 'recusada') {
-          kanbanColumn = 'recusada';
-        } else if (proposal.status === 'aceita' || proposal.status === 'Finalizada') {
-          kanbanColumn = 'finalizada';
-        }
-        
-        await this.updateClientKanbanColumn(updatedProposal.clientId, kanbanColumn);
-      }
-      
       return updatedProposal;
     } catch (error) {
       console.error(`Erro ao atualizar proposta com ID ${id}:`, error);
@@ -503,21 +426,29 @@ export class DatabaseStorage implements IStorage {
 
   async getProposalsByValue(minValue: number, maxValue?: number): Promise<Proposal[]> {
     try {
-      console.log(`DB: Buscando propostas com valor entre ${minValue} e ${maxValue || 'ilimitado'}`);
+      console.log(`DB: Buscando propostas por valor entre ${minValue} e ${maxValue || 'infinito'}`);
+      // Converter valores das propostas para números
+      // Note: Isso assume que o campo value está no formato 'R$ X.XXX,XX'
+      const allProposals = await this.getProposals();
       
-      // Convertendo o valor da proposta para número para comparação
-      const valueQuery = db
-        .select()
-        .from(proposals)
-        .where(
-          and(
-            gte(sql`CAST(${proposals.value} AS numeric)`, minValue),
-            maxValue ? lte(sql`CAST(${proposals.value} AS numeric)`, maxValue) : undefined
-          )
-        )
-        .orderBy(desc(proposals.createdAt));
+      return allProposals.filter(p => {
+        if (!p.value) return false;
         
-      return await valueQuery;
+        // Remover 'R$ ' e substituir '.' por '' e ',' por '.'
+        const numericValue = parseFloat(
+          p.value.replace('R$ ', '')
+            .replace(/\./g, '')
+            .replace(',', '.')
+        );
+        
+        if (isNaN(numericValue)) return false;
+        
+        if (maxValue !== undefined) {
+          return numericValue >= minValue && numericValue <= maxValue;
+        } else {
+          return numericValue >= minValue;
+        }
+      });
     } catch (error) {
       console.error(`Erro ao buscar propostas por valor:`, error);
       return [];
@@ -542,145 +473,44 @@ export class DatabaseStorage implements IStorage {
     try {
       console.log('DB: Buscando propostas com detalhes');
       
-      // Busca todas as propostas
+      // Obtém todas as propostas, clientes, produtos, convênios e bancos
       const allProposals = await this.getProposals();
-      
-      // Busca todos os clientes, produtos, convênios e bancos para juntar aos dados das propostas
       const allClients = await this.getClients();
       const allProducts = await this.getProducts();
       const allConvenios = await this.getConvenios();
       const allBanks = await this.getBanks();
       
-      // Mapeia as propostas com seus detalhes
-      return allProposals.map(proposal => ({
-        ...proposal,
-        client: allClients.find(c => c.id === proposal.clientId),
-        product: allProducts.find(p => p.id === proposal.productId),
-        convenio: allConvenios.find(c => c.id === proposal.convenioId),
-        bank: allBanks.find(b => b.id === proposal.bankId)
-      }));
+      // Mapeia as propostas com seus detalhes relacionados
+      return allProposals.map(proposal => {
+        const client = allClients.find(c => c.id === proposal.clientId);
+        const product = allProducts.find(p => p.id === proposal.productId);
+        const convenio = allConvenios.find(c => c.id === proposal.convenioId);
+        const bank = allBanks.find(b => b.id === proposal.bankId);
+        
+        return {
+          ...proposal,
+          client,
+          product,
+          convenio,
+          bank
+        };
+      });
     } catch (error) {
       console.error('Erro ao buscar propostas com detalhes:', error);
       return [];
     }
   }
 
-  // Métodos para Kanban
-  async getKanbanEntries(): Promise<Kanban[]> {
-    try {
-      console.log('DB: Buscando todas as entradas do kanban');
-      return await db.select().from(kanban);
-    } catch (error) {
-      console.error('Erro ao buscar entradas do kanban:', error);
-      return [];
-    }
-  }
-
-  async getKanbanEntry(id: number): Promise<Kanban | undefined> {
-    try {
-      console.log(`DB: Buscando entrada de kanban com ID ${id}`);
-      const result = await db.select().from(kanban).where(eq(kanban.id, id));
-      return result[0];
-    } catch (error) {
-      console.error(`Erro ao buscar entrada de kanban com ID ${id}:`, error);
-      return undefined;
-    }
-  }
-
-  async getKanbanEntryByClient(clientId: number): Promise<Kanban | undefined> {
-    try {
-      console.log(`DB: Buscando entrada de kanban do cliente com ID ${clientId}`);
-      const result = await db.select().from(kanban).where(eq(kanban.clientId, clientId));
-      return result[0];
-    } catch (error) {
-      console.error(`Erro ao buscar entrada de kanban do cliente com ID ${clientId}:`, error);
-      return undefined;
-    }
-  }
-
-  async createKanbanEntry(kanbanEntry: InsertKanban): Promise<Kanban> {
-    try {
-      console.log('DB: Criando nova entrada de kanban', kanbanEntry);
-      
-      // Se não tiver uma posição, obter a próxima posição disponível na coluna
-      if (kanbanEntry.position === undefined) {
-        kanbanEntry.position = await this.getNextPositionForColumn(kanbanEntry.column);
-      }
-      
-      const [newEntry] = await db.insert(kanban).values(kanbanEntry).returning();
-      return newEntry;
-    } catch (error) {
-      console.error('Erro ao criar entrada de kanban:', error);
-      throw error;
-    }
-  }
-
-  async updateKanbanEntry(id: number, kanbanEntry: Partial<InsertKanban>): Promise<Kanban | undefined> {
-    try {
-      console.log(`DB: Atualizando entrada de kanban com ID ${id}`, kanbanEntry);
-      const [updatedEntry] = await db
-        .update(kanban)
-        .set(kanbanEntry)
-        .where(eq(kanban.id, id))
-        .returning();
-      return updatedEntry;
-    } catch (error) {
-      console.error(`Erro ao atualizar entrada de kanban com ID ${id}:`, error);
-      return undefined;
-    }
-  }
-
-  async updateClientKanbanColumn(clientId: number, column: string): Promise<Kanban | undefined> {
-    try {
-      console.log(`DB: Atualizando coluna do kanban do cliente com ID ${clientId} para ${column}`);
-      
-      // Busca a entrada existente
-      const existingEntry = await this.getKanbanEntryByClient(clientId);
-      
-      if (existingEntry) {
-        // Se já existe uma entrada, atualizá-la
-        const position = await this.getNextPositionForColumn(column);
-        return await this.updateKanbanEntry(existingEntry.id, { column, position });
-      } else {
-        // Se não existe, criar uma nova
-        const position = await this.getNextPositionForColumn(column);
-        const entry = await this.createKanbanEntry({ clientId, column, position });
-        return entry;
-      }
-    } catch (error) {
-      console.error(`Erro ao atualizar coluna do kanban do cliente com ID ${clientId}:`, error);
-      return undefined;
-    }
-  }
-
-  private async getNextPositionForColumn(column: string): Promise<number> {
-    try {
-      // Busca o maior valor de posição na coluna
-      const positionQuery = db
-        .select({
-          maxPos: sql<number>`coalesce(max(${kanban.position}), -1)`
-        })
-        .from(kanban)
-        .where(eq(kanban.column, column));
-        
-      const [result] = await positionQuery;
-      return (result?.maxPos || -1) + 1;
-    } catch (error) {
-      console.error(`Erro ao obter próxima posição para coluna ${column}:`, error);
-      return 0;
-    }
-  }
-
-  // Métodos para Clientes por Criador/Organização
+  // Métodos para filtros por criador e organização
   async getClientsByCreator(creatorId: number): Promise<Client[]> {
     try {
-      console.log(`DB: Buscando clientes criados pelo usuário com ID ${creatorId}`);
+      console.log(`DB: Buscando clientes do criador com ID ${creatorId}`);
       return await db
         .select()
         .from(clients)
         .where(eq(clients.createdById, creatorId));
     } catch (error) {
-      console.error(`Erro ao buscar clientes criados pelo usuário com ID ${creatorId}:`, error);
+      console.error(`Erro ao buscar clientes do criador com ID ${creatorId}:`, error);
       return [];
     }
   }
@@ -698,17 +528,16 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // Métodos para Propostas por Criador/Organização
   async getProposalsByCreator(creatorId: number): Promise<Proposal[]> {
     try {
-      console.log(`DB: Buscando propostas criadas pelo usuário com ID ${creatorId}`);
+      console.log(`DB: Buscando propostas do criador com ID ${creatorId}`);
       return await db
         .select()
         .from(proposals)
         .where(eq(proposals.createdById, creatorId))
         .orderBy(desc(proposals.createdAt));
     } catch (error) {
-      console.error(`Erro ao buscar propostas criadas pelo usuário com ID ${creatorId}:`, error);
+      console.error(`Erro ao buscar propostas do criador com ID ${creatorId}:`, error);
       return [];
     }
   }
@@ -751,11 +580,11 @@ export class DatabaseStorage implements IStorage {
 
   async getUserByEmail(email: string): Promise<User | undefined> {
     try {
-      console.log(`DB: Buscando usuário com email ${email}`);
+      console.log(`DB: Buscando usuário com e-mail ${email}`);
       const result = await db.select().from(users).where(eq(users.email, email));
       return result[0];
     } catch (error) {
-      console.error(`Erro ao buscar usuário com email ${email}:`, error);
+      console.error(`Erro ao buscar usuário com e-mail ${email}:`, error);
       return undefined;
     }
   }
@@ -764,24 +593,26 @@ export class DatabaseStorage implements IStorage {
     try {
       console.log('DB: Criando novo usuário', { ...user, password: '[REDACTED]' });
       
-      // Gerar salt e hash da senha
+      // Verificar se já existe um usuário com o mesmo e-mail
+      const existingUser = await this.getUserByEmail(user.email);
+      if (existingUser) {
+        throw new Error('Já existe um usuário com este e-mail');
+      }
+      
+      // Hash da senha
       const salt = randomBytes(16).toString('hex');
-      const hash = scryptSync(user.password, salt, 64).toString('hex');
-      const hashedPassword = `${salt}:${hash}`;
+      const hashedPassword = scryptSync(user.password, salt, 64).toString('hex') + '.' + salt;
       
-      // Remover a senha em texto puro e adicionar a senha hasheada
-      const { password, ...userData } = user;
-      
-      // Inserir o usuário no banco de dados
       const [newUser] = await db
         .insert(users)
         .values({
-          ...userData,
-          // Aqui poderíamos armazenar hashedPassword em uma coluna password, 
-          // mas nessa implementação não estamos armazenando a senha
+          ...user,
+          password: hashedPassword,
+          createdAt: new Date(),
+          updatedAt: new Date()
         })
         .returning();
-        
+      
       return newUser;
     } catch (error) {
       console.error('Erro ao criar usuário:', error);
@@ -792,11 +623,24 @@ export class DatabaseStorage implements IStorage {
   async updateUser(id: number, userData: Partial<InsertUser>): Promise<User | undefined> {
     try {
       console.log(`DB: Atualizando usuário com ID ${id}`, userData);
+      
+      // Se estiver atualizando o e-mail, verificar se já existe
+      if (userData.email) {
+        const existingUser = await this.getUserByEmail(userData.email);
+        if (existingUser && existingUser.id !== id) {
+          throw new Error('Já existe um usuário com este e-mail');
+        }
+      }
+      
       const [updatedUser] = await db
         .update(users)
-        .set(userData)
+        .set({
+          ...userData,
+          updatedAt: new Date()
+        })
         .where(eq(users.id, id))
         .returning();
+      
       return updatedUser;
     } catch (error) {
       console.error(`Erro ao atualizar usuário com ID ${id}:`, error);
@@ -807,6 +651,21 @@ export class DatabaseStorage implements IStorage {
   async deleteUser(id: number): Promise<boolean> {
     try {
       console.log(`DB: Removendo usuário com ID ${id}`);
+      
+      // Verificar se o usuário existe
+      const user = await this.getUserById(id);
+      if (!user) {
+        return false;
+      }
+      
+      // Não permitir excluir o último superadmin
+      if (user.role === 'superadmin') {
+        const superadmins = (await this.getUsers()).filter(u => u.role === 'superadmin');
+        if (superadmins.length <= 1) {
+          throw new Error('Não é possível excluir o último superadmin');
+        }
+      }
+      
       const result = await db.delete(users).where(eq(users.id, id)).returning();
       return result.length > 0;
     } catch (error) {
@@ -828,31 +687,35 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // Autenticação
   async loginUser(email: string, password: string): Promise<AuthData | null> {
     try {
-      console.log(`DB: Tentando login para o usuário com email ${email}`);
+      console.log(`DB: Tentativa de login para o usuário ${email}`);
       
-      // Buscar usuário pelo email
+      // Buscar o usuário pelo e-mail
       const user = await this.getUserByEmail(email);
-      
       if (!user) {
-        console.log(`Usuário com email ${email} não encontrado`);
+        console.log(`Usuário com e-mail ${email} não encontrado`);
         return null;
       }
       
-      // Para simplificar, em ambiente de desenvolvimento/teste, aceitamos qualquer senha
-      // Na produção, usaríamos uma verificação hash adequada
-      console.log(`Login bem-sucedido para o usuário ${email}`);
+      // Verificar a senha
+      const [hashedPassword, salt] = user.password.split('.');
+      const inputHash = scryptSync(password, salt, 64).toString('hex');
       
-      // Buscar organização
-      let organization: Organization | undefined;
-      if (user.organizationId) {
-        organization = await this.getOrganizationById(user.organizationId);
+      if (inputHash !== hashedPassword) {
+        console.log(`Senha incorreta para o usuário ${email}`);
+        return null;
       }
       
-      // Gerar token
-      const token = jwt.sign({ userId: user.id, role: user.role }, "secret_key", { expiresIn: "7d" });
+      // Buscar a organização do usuário
+      const organization = await this.getOrganizationById(user.organizationId);
+      
+      // Gerar token JWT
+      const token = jwt.sign(
+        { id: user.id, email: user.email, role: user.role },
+        process.env.JWT_SECRET || 'seu_jwt_secret',
+        { expiresIn: '24h' }
+      );
       
       return {
         token,
@@ -862,30 +725,45 @@ export class DatabaseStorage implements IStorage {
         }
       };
     } catch (error) {
-      console.error(`Erro ao realizar login para usuário com email ${email}:`, error);
+      console.error(`Erro ao realizar login para o usuário ${email}:`, error);
       return null;
     }
   }
 
   async resetPassword(email: string): Promise<boolean> {
     try {
-      console.log(`DB: Resetando senha do usuário com email ${email}`);
+      console.log(`DB: Resetando senha para o usuário ${email}`);
       
-      // Verificar se o usuário existe
+      // Buscar o usuário pelo e-mail
       const user = await this.getUserByEmail(email);
-      
       if (!user) {
-        console.log(`Usuário com email ${email} não encontrado`);
+        console.log(`Usuário com e-mail ${email} não encontrado`);
         return false;
       }
       
-      // Em uma implementação real, enviaríamos um e-mail com link para reset
-      // e/ou gerar uma nova senha temporária
-      console.log(`Senha resetada para o usuário com email ${email}`);
+      // Gerar nova senha aleatória
+      const newPassword = randomBytes(4).toString('hex');
+      
+      // Hash da nova senha
+      const salt = randomBytes(16).toString('hex');
+      const hashedPassword = scryptSync(newPassword, salt, 64).toString('hex') + '.' + salt;
+      
+      // Atualizar o usuário
+      await db
+        .update(users)
+        .set({
+          password: hashedPassword,
+          updatedAt: new Date()
+        })
+        .where(eq(users.id, user.id));
+      
+      console.log(`Nova senha gerada para o usuário ${email}: ${newPassword}`);
+      
+      // Em um ambiente de produção, enviar e-mail com a nova senha
       
       return true;
     } catch (error) {
-      console.error(`Erro ao resetar senha do usuário com email ${email}:`, error);
+      console.error(`Erro ao resetar senha para o usuário ${email}:`, error);
       return false;
     }
   }
@@ -915,11 +793,18 @@ export class DatabaseStorage implements IStorage {
   async createOrganization(organizationData: InsertOrganization): Promise<Organization> {
     try {
       console.log('DB: Criando nova organização', organizationData);
-      const [newOrg] = await db
+      
+      // Garantir que createdAt esteja definido
+      if (!organizationData.createdAt) {
+        organizationData = { ...organizationData, createdAt: new Date() };
+      }
+      
+      const [newOrganization] = await db
         .insert(organizations)
         .values(organizationData)
         .returning();
-      return newOrg;
+      
+      return newOrganization;
     } catch (error) {
       console.error('Erro ao criar organização:', error);
       throw error;
@@ -929,12 +814,13 @@ export class DatabaseStorage implements IStorage {
   async updateOrganization(id: number, organizationData: Partial<InsertOrganization>): Promise<Organization | undefined> {
     try {
       console.log(`DB: Atualizando organização com ID ${id}`, organizationData);
-      const [updatedOrg] = await db
+      const [updatedOrganization] = await db
         .update(organizations)
         .set(organizationData)
         .where(eq(organizations.id, id))
         .returning();
-      return updatedOrg;
+      
+      return updatedOrganization;
     } catch (error) {
       console.error(`Erro ao atualizar organização com ID ${id}:`, error);
       return undefined;
@@ -945,28 +831,13 @@ export class DatabaseStorage implements IStorage {
     try {
       console.log(`DB: Removendo organização com ID ${id}`);
       
-      // Remover usuários da organização ou atualizar para NULL
-      await db
-        .update(users)
-        .set({ organizationId: null })
-        .where(eq(users.organizationId, id));
+      // Verificar se existem usuários na organização
+      const usersInOrg = await this.getUsersInOrganization(id);
+      if (usersInOrg.length > 0) {
+        throw new Error('Não é possível excluir uma organização com usuários');
+      }
       
-      // Remover clientes da organização
-      await db
-        .delete(clients)
-        .where(eq(clients.organizationId, id));
-      
-      // Remover propostas da organização
-      await db
-        .delete(proposals)
-        .where(eq(proposals.organizationId, id));
-      
-      // Remover a organização
-      const result = await db
-        .delete(organizations)
-        .where(eq(organizations.id, id))
-        .returning();
-      
+      const result = await db.delete(organizations).where(eq(organizations.id, id)).returning();
       return result.length > 0;
     } catch (error) {
       console.error(`Erro ao remover organização com ID ${id}:`, error);
@@ -974,107 +845,119 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // ==================
-  // Form Template methods
-  // ==================
-
+  // Métodos para Templates de Formulários
   async getFormTemplates(): Promise<FormTemplate[]> {
     try {
-      console.log('DB: Buscando todos os modelos de formulário');
+      console.log('DB: Buscando todos os templates de formulários');
       return await db.select().from(formTemplates);
     } catch (error) {
-      console.error('Erro ao buscar modelos de formulário:', error);
+      console.error('Erro ao buscar templates de formulários:', error);
       return [];
     }
   }
 
   async getFormTemplate(id: number): Promise<FormTemplate | undefined> {
     try {
-      console.log(`DB: Buscando modelo de formulário com ID ${id}`);
-      const results = await db.select().from(formTemplates).where(eq(formTemplates.id, id));
-      return results.length > 0 ? results[0] : undefined;
+      console.log(`DB: Buscando template de formulário com ID ${id}`);
+      const result = await db.select().from(formTemplates).where(eq(formTemplates.id, id));
+      return result[0];
     } catch (error) {
-      console.error(`Erro ao buscar modelo de formulário com ID ${id}:`, error);
+      console.error(`Erro ao buscar template de formulário com ID ${id}:`, error);
       return undefined;
     }
   }
 
   async createFormTemplate(template: InsertFormTemplate): Promise<FormTemplate> {
     try {
-      console.log('DB: Criando novo modelo de formulário');
-      const results = await db.insert(formTemplates).values({
-        ...template,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      }).returning();
-      return results[0];
+      console.log('DB: Criando novo template de formulário', template);
+      
+      // Garantir timestamps
+      if (!template.createdAt) {
+        template = {
+          ...template,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+      }
+      
+      const [newTemplate] = await db
+        .insert(formTemplates)
+        .values(template)
+        .returning();
+      
+      return newTemplate;
     } catch (error) {
-      console.error('Erro ao criar modelo de formulário:', error);
+      console.error('Erro ao criar template de formulário:', error);
       throw error;
     }
   }
 
   async updateFormTemplate(id: number, template: Partial<InsertFormTemplate>): Promise<FormTemplate | undefined> {
     try {
-      console.log(`DB: Atualizando modelo de formulário com ID ${id}`);
-      const results = await db
+      console.log(`DB: Atualizando template de formulário com ID ${id}`, template);
+      
+      // Adicionar data de atualização
+      template = {
+        ...template,
+        updatedAt: new Date()
+      };
+      
+      const [updatedTemplate] = await db
         .update(formTemplates)
-        .set({
-          ...template,
-          updatedAt: new Date()
-        })
+        .set(template)
         .where(eq(formTemplates.id, id))
         .returning();
-      return results.length > 0 ? results[0] : undefined;
+      
+      return updatedTemplate;
     } catch (error) {
-      console.error(`Erro ao atualizar modelo de formulário com ID ${id}:`, error);
+      console.error(`Erro ao atualizar template de formulário com ID ${id}:`, error);
       return undefined;
     }
   }
 
   async deleteFormTemplate(id: number): Promise<boolean> {
     try {
-      console.log(`DB: Removendo modelo de formulário com ID ${id}`);
-      // Primeiro, removemos todas as submissões relacionadas
-      await db
-        .delete(formSubmissions)
-        .where(eq(formSubmissions.formTemplateId, id));
+      console.log(`DB: Removendo template de formulário com ID ${id}`);
       
-      // Depois removemos o template
-      const result = await db
-        .delete(formTemplates)
-        .where(eq(formTemplates.id, id));
+      // Verificar se existem submissões usando este template
+      const submissions = await this.getFormSubmissionsByTemplate(id);
+      if (submissions.length > 0) {
+        console.warn(`Existem ${submissions.length} submissões usando este template. Deletar mesmo assim.`);
+      }
       
+      // Remover as submissões relacionadas
+      for (const submission of submissions) {
+        await db.delete(formSubmissions).where(eq(formSubmissions.id, submission.id));
+      }
+      
+      const result = await db.delete(formTemplates).where(eq(formTemplates.id, id)).returning();
       return result.length > 0;
     } catch (error) {
-      console.error(`Erro ao remover modelo de formulário com ID ${id}:`, error);
+      console.error(`Erro ao remover template de formulário com ID ${id}:`, error);
       return false;
     }
   }
 
   async getFormTemplatesByOrganization(organizationId: number): Promise<FormTemplate[]> {
     try {
-      console.log(`DB: Buscando modelos de formulário da organização ${organizationId}`);
+      console.log(`DB: Buscando templates de formulários da organização com ID ${organizationId}`);
       return await db
         .select()
         .from(formTemplates)
         .where(eq(formTemplates.organizationId, organizationId));
     } catch (error) {
-      console.error(`Erro ao buscar modelos de formulário da organização ${organizationId}:`, error);
+      console.error(`Erro ao buscar templates de formulários da organização com ID ${organizationId}:`, error);
       return [];
     }
   }
 
-  // ==================
-  // Form Submission methods
-  // ==================
-
+  // Métodos para Submissões de Formulários
   async getFormSubmissions(): Promise<FormSubmission[]> {
     try {
-      console.log('DB: Buscando todas as submissões de formulário');
-      return await db.select().from(formSubmissions);
+      console.log('DB: Buscando todas as submissões de formulários');
+      return await db.select().from(formSubmissions).orderBy(desc(formSubmissions.createdAt));
     } catch (error) {
-      console.error('Erro ao buscar submissões de formulário:', error);
+      console.error('Erro ao buscar submissões de formulários:', error);
       return [];
     }
   }
@@ -1082,11 +965,8 @@ export class DatabaseStorage implements IStorage {
   async getFormSubmission(id: number): Promise<FormSubmission | undefined> {
     try {
       console.log(`DB: Buscando submissão de formulário com ID ${id}`);
-      const results = await db
-        .select()
-        .from(formSubmissions)
-        .where(eq(formSubmissions.id, id));
-      return results.length > 0 ? results[0] : undefined;
+      const result = await db.select().from(formSubmissions).where(eq(formSubmissions.id, id));
+      return result[0];
     } catch (error) {
       console.error(`Erro ao buscar submissão de formulário com ID ${id}:`, error);
       return undefined;
@@ -1095,16 +975,21 @@ export class DatabaseStorage implements IStorage {
 
   async createFormSubmission(submission: InsertFormSubmission): Promise<FormSubmission> {
     try {
-      console.log('DB: Criando nova submissão de formulário');
-      const results = await db
+      console.log('DB: Criando nova submissão de formulário', submission);
+      
+      // Garantir que status e timestamps estejam definidos
+      submission = {
+        ...submission,
+        status: submission.status || 'pending',
+        createdAt: new Date()
+      };
+      
+      const [newSubmission] = await db
         .insert(formSubmissions)
-        .values({
-          ...submission,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        })
+        .values(submission)
         .returning();
-      return results[0];
+      
+      return newSubmission;
     } catch (error) {
       console.error('Erro ao criar submissão de formulário:', error);
       throw error;
@@ -1113,8 +998,9 @@ export class DatabaseStorage implements IStorage {
 
   async updateFormSubmissionStatus(id: number, status: string, processedById?: number): Promise<FormSubmission | undefined> {
     try {
-      console.log(`DB: Atualizando status da submissão ${id} para ${status}`);
-      const updateData: Partial<FormSubmission> = {
+      console.log(`DB: Atualizando status da submissão de formulário com ID ${id} para ${status}`);
+      
+      const updateData: any = {
         status,
         updatedAt: new Date()
       };
@@ -1123,120 +1009,131 @@ export class DatabaseStorage implements IStorage {
         updateData.processedById = processedById;
       }
       
-      const results = await db
+      const [updatedSubmission] = await db
         .update(formSubmissions)
         .set(updateData)
         .where(eq(formSubmissions.id, id))
         .returning();
       
-      return results.length > 0 ? results[0] : undefined;
+      return updatedSubmission;
     } catch (error) {
-      console.error(`Erro ao atualizar status da submissão ${id}:`, error);
+      console.error(`Erro ao atualizar status da submissão de formulário com ID ${id}:`, error);
       return undefined;
     }
   }
 
   async processFormSubmission(id: number, processedById: number): Promise<{client: Client, submission: FormSubmission} | undefined> {
     try {
-      console.log(`DB: Processando submissão ${id} para criar cliente`);
+      console.log(`DB: Processando submissão de formulário com ID ${id}`);
       
       // Buscar a submissão
       const submission = await this.getFormSubmission(id);
       if (!submission) {
-        console.error(`Submissão ${id} não encontrada`);
-        return undefined;
+        throw new Error(`Submissão de formulário com ID ${id} não encontrada`);
       }
       
-      // Buscar o template para obter a coluna do kanban
-      const template = await this.getFormTemplate(submission.formTemplateId!);
+      // Verificar se já foi processada
+      if (submission.status === 'processed') {
+        throw new Error(`Submissão de formulário com ID ${id} já foi processada`);
+      }
+      
+      // Buscar o template
+      const template = await this.getFormTemplate(submission.formTemplateId);
       if (!template) {
-        console.error(`Template da submissão ${id} não encontrado`);
-        return undefined;
+        throw new Error(`Template de formulário com ID ${submission.formTemplateId} não encontrado`);
       }
       
-      // Tipagem segura para dados do formulário
-      const formData = submission.data as Record<string, any>;
+      // Criar cliente a partir dos dados da submissão
+      const data = submission.data;
       
-      // Criar um novo cliente com os dados do formulário
-      const client = await this.createClient({
-        name: formData.name || '',
-        email: formData.email || null,
-        phone: formData.phone || null,
-        cpf: formData.cpf || null,
-        birthDate: formData.birthDate || null,
-        convenioId: formData.convenioId || null,
-        contact: formData.contact || null,
-        company: formData.company || null,
-        organizationId: submission.organizationId,
-        createdById: processedById
-      });
-      
-      // Atualizar a submissão para processada e vinculá-la ao cliente
-      const updatedSubmission = await db
-        .update(formSubmissions)
-        .set({
-          status: 'processado',
-          clientId: client.id,
-          processedById,
-          updatedAt: new Date()
-        })
-        .where(eq(formSubmissions.id, id))
-        .returning();
-      
-      if (updatedSubmission.length === 0) {
-        console.error(`Erro ao atualizar submissão ${id} após processamento`);
-        return undefined;
+      // Buscar o usuário que está processando
+      const user = await this.getUserById(processedById);
+      if (!user) {
+        throw new Error(`Usuário com ID ${processedById} não encontrado`);
       }
       
-      return {
-        client,
-        submission: updatedSubmission[0]
+      // Criar o cliente
+      const newClient: InsertClient = {
+        name: data.nome || 'Cliente sem nome',
+        email: data.email || '',
+        phone: data.telefone || '',
+        cpf: data.cpf || '',
+        birthDate: data.data_nascimento || '',
+        createdById: processedById,
+        organizationId: user.organizationId
+      };
+      
+      const client = await this.createClient(newClient);
+      
+      // Atualizar o status da submissão
+      const updatedSubmission = await this.updateFormSubmissionStatus(id, 'processed', processedById);
+      
+      if (!updatedSubmission) {
+        throw new Error(`Erro ao atualizar status da submissão de formulário com ID ${id}`);
+      }
+      
+      return { 
+        client, 
+        submission: updatedSubmission 
       };
     } catch (error) {
-      console.error(`Erro ao processar submissão ${id}:`, error);
+      console.error(`Erro ao processar submissão de formulário com ID ${id}:`, error);
       return undefined;
     }
   }
 
   async getFormSubmissionsByTemplate(templateId: number): Promise<FormSubmission[]> {
     try {
-      console.log(`DB: Buscando submissões do template ${templateId}`);
+      console.log(`DB: Buscando submissões de formulários do template com ID ${templateId}`);
       return await db
         .select()
         .from(formSubmissions)
-        .where(eq(formSubmissions.formTemplateId, templateId));
+        .where(eq(formSubmissions.formTemplateId, templateId))
+        .orderBy(desc(formSubmissions.createdAt));
     } catch (error) {
-      console.error(`Erro ao buscar submissões do template ${templateId}:`, error);
+      console.error(`Erro ao buscar submissões de formulários do template com ID ${templateId}:`, error);
       return [];
     }
   }
 
   async getFormSubmissionsByStatus(status: string): Promise<FormSubmission[]> {
     try {
-      console.log(`DB: Buscando submissões com status ${status}`);
+      console.log(`DB: Buscando submissões de formulários com status ${status}`);
       return await db
         .select()
         .from(formSubmissions)
-        .where(eq(formSubmissions.status, status));
+        .where(eq(formSubmissions.status, status))
+        .orderBy(desc(formSubmissions.createdAt));
     } catch (error) {
-      console.error(`Erro ao buscar submissões com status ${status}:`, error);
+      console.error(`Erro ao buscar submissões de formulários com status ${status}:`, error);
       return [];
     }
   }
 
   async getFormSubmissionsByOrganization(organizationId: number): Promise<FormSubmission[]> {
     try {
-      console.log(`DB: Buscando submissões da organização ${organizationId}`);
-      return await db
-        .select()
-        .from(formSubmissions)
-        .where(eq(formSubmissions.organizationId, organizationId));
+      console.log(`DB: Buscando submissões de formulários da organização com ID ${organizationId}`);
+      
+      // Primeiro obtém os templates da organização
+      const templates = await this.getFormTemplatesByOrganization(organizationId);
+      
+      // Se não houver templates, retorna array vazio
+      if (templates.length === 0) {
+        return [];
+      }
+      
+      // Busca todas as submissões
+      const allSubmissions = await this.getFormSubmissions();
+      
+      // Filtra as submissões que pertencem aos templates da organização
+      return allSubmissions.filter(submission => 
+        templates.some(template => template.id === submission.formTemplateId)
+      );
     } catch (error) {
-      console.error(`Erro ao buscar submissões da organização ${organizationId}:`, error);
+      console.error(`Erro ao buscar submissões de formulários da organização com ID ${organizationId}:`, error);
       return [];
     }
   }
 }
 
-// Exportar uma instância para uso em routes.ts
 export const databaseStorage = new DatabaseStorage();

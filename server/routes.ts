@@ -4,7 +4,6 @@ import { z } from "zod";
 import { 
   insertClientSchema, 
   insertProposalSchema, 
-  insertKanbanSchema, 
   InsertClient, 
   insertUserSchema, 
   registerUserSchema,
@@ -212,14 +211,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/clients-with-kanban', async (req, res) => {
-    try {
-      const clientsWithKanban = await storage.getClientsWithKanban();
-      res.json(clientsWithKanban);
-    } catch (error) {
-      res.status(500).json({ message: 'Error fetching clients with kanban data' });
-    }
-  });
+  // Rota clients-with-kanban removida (funcionalidade de kanban foi eliminada)
 
   // =================
   // Product endpoints
@@ -512,140 +504,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // =================
-  // Kanban endpoints
+  // Kanban endpoints removidos
   // =================
   
-  app.get('/api/kanban', requireAuth, async (req, res) => {
-    try {
-      if (!req.user) {
-        return res.status(401).json({ message: 'Authentication required' });
-      }
-      
-      // Filtrar as entradas do Kanban com base no papel do usuário
-      let kanbanEntries = [];
-      
-      if (req.user.role === UserRole.AGENT) {
-        // Agentes só veem entradas de clientes que eles criaram
-        const clientsCreatedByUser = await storage.getClientsByCreator(req.user.id);
-        
-        // Obter entradas kanban para esses clientes
-        const allKanbanEntries = await storage.getKanbanEntries();
-        kanbanEntries = allKanbanEntries.filter(entry => 
-          clientsCreatedByUser.some(client => client.id === entry.clientId)
-        );
-      } else if (req.user.role === UserRole.MANAGER) {
-        // Gestores veem entradas de clientes de sua organização
-        const clientsInOrg = await storage.getClientsByOrganization(req.user.organizationId || 0);
-        
-        // Obter entradas kanban para esses clientes
-        const allKanbanEntries = await storage.getKanbanEntries();
-        kanbanEntries = allKanbanEntries.filter(entry => 
-          clientsInOrg.some(client => client.id === entry.clientId)
-        );
-      } else {
-        // Superadmins veem todas as entradas
-        kanbanEntries = await storage.getKanbanEntries();
-      }
-      
-      res.json(kanbanEntries);
-    } catch (error) {
-      console.error('Erro ao buscar entradas do kanban:', error);
-      res.status(500).json({ message: 'Error fetching kanban entries' });
-    }
-  });
-
-  app.post('/api/kanban', requireAuth, async (req, res) => {
-    try {
-      if (!req.user) {
-        return res.status(401).json({ message: 'Authentication required' });
-      }
-      
-      // Adicionar dados do usuário
-      const data = {
-        ...req.body,
-        createdById: req.user.id,
-        organizationId: req.user.organizationId || 1
-      };
-      
-      const kanbanData = insertKanbanSchema.parse(data);
-      const kanbanEntry = await storage.createKanbanEntry(kanbanData);
-      res.status(201).json(kanbanEntry);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: 'Invalid kanban data', errors: error.errors });
-      }
-      console.error('Erro ao criar entrada kanban:', error);
-      res.status(500).json({ message: 'Error creating kanban entry' });
-    }
-  });
-
-  app.put('/api/kanban/client/:clientId/column', requireAuth, async (req, res) => {
-    try {
-      if (!req.user) {
-        return res.status(401).json({ message: 'Authentication required' });
-      }
-      
-      const clientId = parseInt(req.params.clientId);
-      const { column } = req.body;
-      
-      if (!column) {
-        return res.status(400).json({ message: 'Column is required' });
-      }
-      
-      // Verificar se o usuário tem permissão para atualizar este cliente no kanban
-      const client = await storage.getClient(clientId);
-      
-      if (!client) {
-        return res.status(404).json({ message: 'Client not found' });
-      }
-      
-      // Verificar permissões baseadas no papel do usuário
-      if (req.user.role === UserRole.AGENT && client.createdById !== req.user.id) {
-        return res.status(403).json({ message: 'You do not have permission to update this client' });
-      }
-      
-      if (req.user.role === UserRole.MANAGER && client.organizationId !== req.user.organizationId) {
-        return res.status(403).json({ message: 'You do not have permission to update clients from other organizations' });
-      }
-      
-      const updatedEntry = await storage.updateClientKanbanColumn(clientId, column);
-      
-      if (!updatedEntry) {
-        return res.status(404).json({ message: 'Kanban entry not found for client' });
-      }
-      
-      // Atualizar todas as propostas do cliente para ter o mesmo status
-      const proposals = await storage.getProposalsByClient(clientId);
-      let status = '';
-      
-      // Mapear coluna do Kanban para status da proposta
-      if (column === 'lead') {
-        status = 'lead';
-      } else if (column === 'qualificacao') {
-        status = 'qualificacao';
-      } else if (column === 'negociacao') {
-        status = 'em_negociacao';
-      } else if (column === 'pendente') {
-        status = 'em_analise';
-      } else if (column === 'recusada') {
-        status = 'recusada';
-      } else if (column === 'finalizada') {
-        status = 'aceita';
-      }
-      
-      // Atualizar o status de todas as propostas do cliente
-      if (status) {
-        for (const proposal of proposals) {
-          await storage.updateProposal(proposal.id, { status });
-        }
-      }
-      
-      res.json(updatedEntry);
-    } catch (error) {
-      console.error('Erro ao atualizar coluna kanban:', error);
-      res.status(500).json({ message: 'Error updating kanban column' });
-    }
-  });
+  // A funcionalidade de Kanban foi removida do sistema
 
   // =================
   // Dashboard data

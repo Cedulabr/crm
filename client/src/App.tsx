@@ -7,7 +7,7 @@ import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/dashboard";
 import Clients from "@/pages/clients";
 import Proposals from "@/pages/proposals";
-import Kanban from "@/pages/kanban";
+// Kanban foi removido
 import Users from "@/pages/users";
 import Organizations from "@/pages/organizations";
 import Forms from "@/pages/forms";
@@ -81,7 +81,7 @@ function Router() {
             <Route path="/dashboard" component={Dashboard} />
             <Route path="/clients" component={Clients} />
             <Route path="/proposals" component={Proposals} />
-            <Route path="/kanban" component={Kanban} />
+            {/* Rota de Kanban removida */}
             <Route path="/users" component={Users} />
             <Route path="/organizations" component={Organizations} />
             <Route path="/forms" component={Forms} />

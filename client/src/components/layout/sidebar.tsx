@@ -13,7 +13,6 @@ const mainNavItems: SidebarNavItem[] = [
   { href: "/dashboard", icon: "dashboard", label: "Dashboard" },
   { href: "/clients", icon: "people", label: "Clientes" },
   { href: "/proposals", icon: "description", label: "Propostas" },
-  { href: "/kanban", icon: "view_kanban", label: "Kanban" },
   { href: "/forms", icon: "dynamic_form", label: "Formulários" },
   { 
     href: "/users", 

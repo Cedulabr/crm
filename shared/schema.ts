@@ -96,13 +96,7 @@ export const proposals = pgTable("proposals", {
   createdAt: timestamp("created_at").defaultNow()
 });
 
-// Kanban table
-export const kanban = pgTable("kanban", {
-  id: serial("id").primaryKey(),
-  clientId: integer("client_id").references(() => clients.id),
-  column: text("column").notNull(), // 'lead', 'qualificacao', 'negociacao', 'fechamento'
-  position: integer("position").notNull() // Order in column
-});
+// Nota: A tabela Kanban foi removida conforme solicitado
 
 // Insert schemas
 export const insertClientSchema = createInsertSchema(clients).omit({ id: true, createdAt: true });
@@ -110,7 +104,6 @@ export const insertProductSchema = createInsertSchema(products).omit({ id: true 
 export const insertConvenioSchema = createInsertSchema(convenios).omit({ id: true });
 export const insertBankSchema = createInsertSchema(banks).omit({ id: true });
 export const insertProposalSchema = createInsertSchema(proposals).omit({ id: true, createdAt: true });
-export const insertKanbanSchema = createInsertSchema(kanban).omit({ id: true });
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertOrganizationSchema = createInsertSchema(organizations).omit({ id: true, createdAt: true });
 
@@ -127,7 +120,6 @@ export type Product = typeof products.$inferSelect;
 export type Convenio = typeof convenios.$inferSelect;
 export type Bank = typeof banks.$inferSelect;
 export type Proposal = typeof proposals.$inferSelect;
-export type Kanban = typeof kanban.$inferSelect;
 export type User = typeof users.$inferSelect;
 export type Organization = typeof organizations.$inferSelect;
 
@@ -137,14 +129,12 @@ export type InsertProduct = z.infer<typeof insertProductSchema>;
 export type InsertConvenio = z.infer<typeof insertConvenioSchema>;
 export type InsertBank = z.infer<typeof insertBankSchema>;
 export type InsertProposal = z.infer<typeof insertProposalSchema>;
-export type InsertKanban = z.infer<typeof insertKanbanSchema>;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type RegisterUser = z.infer<typeof registerUserSchema>;
 export type InsertOrganization = z.infer<typeof insertOrganizationSchema>;
 
 // Extended types
-export type ClientWithKanban = Client & {
-  kanban?: Kanban;
+export type ClientWithStats = Client & {
   proposalCount?: number;
   totalValue?: string | number | null;
 };
