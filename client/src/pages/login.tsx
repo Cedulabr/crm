@@ -71,6 +71,34 @@ export default function LoginPage() {
     }
   }
 
+  // Função para testar a conexão com o Supabase
+  const testConnection = async () => {
+    try {
+      // Importando dinamicamente para evitar problemas de carregamento
+      const { testSupabaseConnection } = await import('../lib/test-supabase');
+      const result = await testSupabaseConnection();
+      
+      if (result.success) {
+        toast({
+          title: "Conexão bem-sucedida",
+          description: "A conexão com o Supabase está funcionando corretamente.",
+        });
+      } else {
+        toast({
+          title: "Erro de conexão",
+          description: result.message || "Não foi possível conectar ao Supabase.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Erro ao testar conexão",
+        description: error instanceof Error ? error.message : "Erro desconhecido",
+        variant: "destructive"
+      });
+    }
+  };
+
   return (
     <div className="flex justify-center items-center min-h-screen bg-gradient-to-br from-slate-900 to-slate-700">
       <Card className="w-full max-w-md shadow-xl">
@@ -83,6 +111,13 @@ export default function LoginPage() {
           <CardDescription className="text-center">
             Acesse ou crie sua conta para continuar
           </CardDescription>
+          <Button 
+            onClick={testConnection} 
+            variant="outline" 
+            size="sm" 
+            className="mx-auto mt-2">
+            Testar Conexão Supabase
+          </Button>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="login" className="w-full">
