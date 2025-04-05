@@ -18,6 +18,7 @@ import {
 import { storage } from "./storage";
 import { check_env } from "./check-env";
 import { authMiddleware, requireAuth, checkRole } from "./middleware/auth";
+import { openAIService } from "./services/openai-service";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Aplicar middleware de autenticação a todas as rotas
@@ -210,6 +211,100 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: 'Error deleting client' });
     }
   });
+  
+  // Rotas de importação e exportação de clientes (acesso restrito a administradores e gestores)
+  app.post('/api/clients/import', requireAuth, checkRole([UserRole.SUPERADMIN, UserRole.MANAGER]), async (req, res) => {
+    try {
+      const { clients } = req.body;
+      
+      if (!Array.isArray(clients) || clients.length === 0) {
+        return res.status(400).json({ message: 'No clients to import' });
+      }
+      
+      let imported = 0;
+      let errors = [];
+      
+      // Processar cada cliente do arquivo CSV
+      for (const clientData of clients) {
+        try {
+          // Converter IDs numéricos de string para number
+          const parsedData: any = {
+            ...clientData,
+            convenioId: clientData.convenioId ? parseInt(clientData.convenioId, 10) : null,
+            organizationId: req.user?.organizationId || 1,
+            createdById: req.user?.id
+          };
+          
+          // Validar dados do cliente
+          const validClientData = insertClientSchema.parse(parsedData);
+          
+          // Verificar se já existe um cliente com o mesmo CPF
+          let existingClient = null;
+          if (validClientData.cpf) {
+            const allClients = await storage.getClients();
+            existingClient = allClients.find(client => client.cpf === validClientData.cpf);
+          }
+          
+          if (existingClient) {
+            // Atualizar cliente existente
+            await storage.updateClient(existingClient.id, validClientData);
+          } else {
+            // Criar novo cliente
+            await storage.createClient(validClientData);
+          }
+          
+          imported++;
+        } catch (error) {
+          console.error('Erro ao importar cliente:', error);
+          errors.push({
+            client: clientData,
+            error: error instanceof z.ZodError ? error.errors : (error instanceof Error ? error.message : String(error))
+          });
+        }
+      }
+      
+      res.status(200).json({
+        message: `Imported ${imported} clients with ${errors.length} errors`,
+        imported,
+        errors: errors.length > 0 ? errors : null
+      });
+    } catch (error) {
+      console.error('Erro na importação de clientes:', error);
+      res.status(500).json({ message: 'Error importing clients' });
+    }
+  });
+  
+  app.get('/api/clients/export', requireAuth, checkRole([UserRole.SUPERADMIN, UserRole.MANAGER]), async (req, res) => {
+    try {
+      let clients = [];
+      
+      // Filtrar por organização se for um gestor
+      if (req.user?.role === UserRole.MANAGER) {
+        clients = await storage.getClientsByOrganization(req.user.organizationId || 0);
+      } else {
+        // Administradores veem todos os clientes
+        clients = await storage.getClients();
+      }
+      
+      // Mapear apenas os campos necessários para o CSV
+      const exportClients = clients.map(client => ({
+        nome: client.name,
+        email: client.email,
+        telefone: client.phone,
+        cpf: client.cpf,
+        observacoes: "", // Não há campo de observações no schema
+        convenioId: client.convenioId,
+        dataNascimento: client.birthDate,
+        contato: client.contact,
+        empresa: client.company
+      }));
+      
+      res.status(200).json({ clients: exportClients });
+    } catch (error) {
+      console.error('Erro na exportação de clientes:', error);
+      res.status(500).json({ message: 'Error exporting clients' });
+    }
+  });
 
   // Rota clients-with-kanban removida (funcionalidade de kanban foi eliminada)
 
@@ -304,7 +399,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(proposals);
     } catch (error) {
-      console.error('Erro ao buscar propostas:', error);
+      const err = error as Error;
+      console.error('Erro ao buscar propostas:', err);
       res.status(500).json({ message: 'Error fetching proposals' });
     }
   });
@@ -1444,6 +1540,188 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Erro ao processar submissão de formulário:', error);
       res.status(500).json({ message: 'Error processing form submission' });
+    }
+  });
+
+  // =================
+  // Smart Search endpoints
+  // =================
+  
+  // Endpoint para processar consultas em linguagem natural
+  app.post('/api/search', requireAuth, async (req, res) => {
+    try {
+      const { query } = req.body;
+      
+      if (!query || typeof query !== 'string') {
+        return res.status(400).json({ message: 'Query parameter is required' });
+      }
+      
+      // Processar a consulta usando OpenAI
+      const queryStructure = await openAIService.processNaturalLanguageQuery(query);
+      
+      // Buscar dados baseados na estrutura da consulta
+      let results = [];
+      
+      // Determinar qual entidade buscar com base na consulta processada
+      switch (queryStructure.entidade) {
+        case 'cliente':
+          let clients = [];
+          
+          // Aplicar controle de acesso baseado no papel do usuário
+          if (req.user?.role === UserRole.AGENT) {
+            clients = await storage.getClientsByCreator(req.user.id);
+          } else if (req.user?.role === UserRole.MANAGER) {
+            clients = await storage.getClientsByOrganization(req.user?.organizationId || 0);
+          } else {
+            clients = await storage.getClients();
+          }
+          
+          // Aplicar filtros
+          if (queryStructure.filtros) {
+            const { nome, email, cpf, telefone, dataInicio, dataFim } = queryStructure.filtros;
+            
+            if (nome) {
+              clients = clients.filter(c => c.name && c.name.toLowerCase().includes(nome.toLowerCase()));
+            }
+            
+            if (email) {
+              clients = clients.filter(c => c.email && c.email.toLowerCase().includes(email.toLowerCase()));
+            }
+            
+            if (cpf) {
+              clients = clients.filter(c => c.cpf && c.cpf.includes(cpf));
+            }
+            
+            if (telefone) {
+              clients = clients.filter(c => c.phone && c.phone.includes(telefone));
+            }
+            
+            // Filtros de data podem ser implementados aqui
+          }
+          
+          // Ordenar resultados com ajuda da OpenAI para classificação de relevância
+          results = await openAIService.rankResultsBySimilarity(query, clients);
+          break;
+          
+        case 'proposta':
+          let proposals = [];
+          
+          // Aplicar controle de acesso baseado no papel do usuário
+          if (req.user?.role === UserRole.AGENT) {
+            proposals = await storage.getProposalsByCreator(req.user.id);
+          } else if (req.user?.role === UserRole.MANAGER) {
+            proposals = await storage.getProposalsByOrganization(req.user?.organizationId || 0);
+          } else {
+            proposals = await storage.getProposals();
+          }
+          
+          // Aplicar filtros
+          if (queryStructure.filtros) {
+            const { status, produto, valorMin, valorMax } = queryStructure.filtros;
+            
+            if (status) {
+              proposals = proposals.filter(p => p.status && p.status.toLowerCase().includes(status.toLowerCase()));
+            }
+            
+            if (valorMin) {
+              const min = Number(valorMin);
+              const max = valorMax ? Number(valorMax) : Infinity;
+              proposals = proposals.filter(p => {
+                const value = Number(p.value) || 0;
+                return value >= min && value <= max;
+              });
+            }
+            
+            if (produto) {
+              // Buscar produto pelo nome
+              const products = await storage.getProducts();
+              const matchingProduct = products.find(p => 
+                p.name && p.name.toLowerCase().includes(produto.toLowerCase())
+              );
+              
+              if (matchingProduct) {
+                proposals = proposals.filter(p => p.productId === matchingProduct.id);
+              }
+            }
+          }
+          
+          // Buscar detalhes completos para as propostas filtradas
+          const proposalsWithDetails = await Promise.all(
+            proposals.map(async (p) => {
+              const client = p.clientId ? await storage.getClient(p.clientId) : null;
+              const product = p.productId ? await storage.getProduct(p.productId) : null;
+              
+              return { 
+                ...p, 
+                client, 
+                product,
+              };
+            })
+          );
+          
+          // Ordenar resultados com ajuda da OpenAI para classificação de relevância
+          results = await openAIService.rankResultsBySimilarity(query, proposalsWithDetails);
+          break;
+          
+        case 'produto':
+          const products = await storage.getProducts();
+          
+          // Aplicar filtros se necessário
+          results = await openAIService.rankResultsBySimilarity(query, products);
+          break;
+          
+        default:
+          // Busca geral (combina resultados de várias entidades)
+          const allClients = await storage.getClients();
+          const allProposals = await storage.getProposalsWithDetails();
+          
+          const combinedResults = [
+            ...allClients.slice(0, 10), // Limitar quantidade para evitar contextos muito grandes
+            ...allProposals.slice(0, 10)
+          ];
+          
+          results = await openAIService.rankResultsBySimilarity(query, combinedResults);
+      }
+      
+      res.json({
+        query,
+        processedQuery: queryStructure,
+        results: results.slice(0, 20) // Limitar a 20 resultados
+      });
+    } catch (error) {
+      console.error('Erro no processamento da busca inteligente:', error);
+      res.status(500).json({ message: 'Error processing smart search' });
+    }
+  });
+  
+  // Endpoint para gerar sugestões de autocompletar
+  app.post('/api/search/autocomplete', requireAuth, async (req, res) => {
+    try {
+      const { input } = req.body;
+      
+      if (!input || typeof input !== 'string') {
+        return res.status(400).json({ message: 'Input parameter is required' });
+      }
+      
+      // Obter alguns clientes para contextualização
+      let clients = [];
+      
+      // Aplicar controle de acesso baseado no papel do usuário
+      if (req.user?.role === UserRole.AGENT) {
+        clients = await storage.getClientsByCreator(req.user.id);
+      } else if (req.user?.role === UserRole.MANAGER) {
+        clients = await storage.getClientsByOrganization(req.user?.organizationId || 0);
+      } else {
+        clients = await storage.getClients();
+      }
+      
+      // Gerar sugestões de autocompletar
+      const suggestions = await openAIService.generateAutocompleteOptions(input, clients);
+      
+      res.json({ suggestions });
+    } catch (error) {
+      console.error('Erro ao gerar sugestões de autocompletar:', error);
+      res.status(500).json({ message: 'Error generating autocomplete suggestions' });
     }
   });
 

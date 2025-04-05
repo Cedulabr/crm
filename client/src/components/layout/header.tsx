@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { LogOut, Settings, User } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { SmartSearch } from "@/components/smart-search/smart-search";
 
 type UserInfo = {
   id: number;
@@ -102,16 +103,9 @@ export default function Header({ onMobileMenuToggle }: HeaderProps) {
         
         <div className="flex-1 flex justify-center lg:justify-start lg:ml-4">
           <div className="relative w-full max-w-md">
-            <Input
-              type="text"
-              className="pl-10 pr-4 py-2"
-              placeholder="Pesquisar clientes, propostas..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+            <SmartSearch 
+              placeholder="Busca inteligente por clientes, propostas..." 
             />
-            <span className="material-icons absolute left-3 top-2 text-neutral-400">
-              search
-            </span>
           </div>
         </div>
         

@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import ClientForm from "@/components/clients/client-form";
 import ClientList from "@/components/clients/client-list";
+import { CSVImportExport } from "@/components/clients/csv-import-export";
 import { type Client } from "@shared/schema";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
@@ -26,7 +27,7 @@ export default function Clients() {
   // Delete client mutation
   const deleteClientMutation = useMutation({
     mutationFn: async (id: number) => {
-      return apiRequest(`/api/clients/${id}`, { method: 'DELETE' });
+      return apiRequest("DELETE", `/api/clients/${id}`, {}, undefined);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/clients'] });
@@ -88,6 +89,9 @@ export default function Clients() {
               search
             </span>
           </div>
+          
+          {/* CSV Import/Export Component */}
+          <CSVImportExport />
           
           <Button 
             className="bg-blue-800 hover:bg-blue-700 text-white shadow-sm"
