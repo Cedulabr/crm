@@ -182,7 +182,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const data = { 
         ...req.body,
         organizationId: req.body.organizationId || req.user.organizationId || 1,
-        createdById: req.user.id
+        createdById: req.user.id.toString()
       };
       
       const clientData = insertClientSchema.parse(data);
@@ -478,7 +478,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         email: "cliente.teste@example.com",
         phone: "(71) 98765-4321",
         cpf: "123.456.789-00",
-        createdById: 1,
+        createdById: "1",
         organizationId: 1
       };
       

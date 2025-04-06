@@ -277,7 +277,7 @@ export class SupabaseStorage implements IStorage {
     return true;
   }
   
-  async getClientsByCreator(creatorId: number): Promise<Client[]> {
+  async getClientsByCreator(creatorId: string): Promise<Client[]> {
     console.log(`Supabase: Buscando clientes do criador ID ${creatorId}`);
     const { data, error } = await supabase
       .from('clients')
@@ -724,7 +724,7 @@ export class SupabaseStorage implements IStorage {
     return data || [];
   }
   
-  async getProposalsByCreator(creatorId: number): Promise<Proposal[]> {
+  async getProposalsByCreator(creatorId: string): Promise<Proposal[]> {
     console.log(`Supabase: Buscando propostas do criador ID ${creatorId}`);
     const { data, error } = await supabase
       .from('proposals')
@@ -772,7 +772,7 @@ export class SupabaseStorage implements IStorage {
     return data || [];
   }
   
-  async getUserById(id: number): Promise<User | undefined> {
+  async getUserById(id: string | number): Promise<User | undefined> {
     console.log(`Supabase: Buscando usuário ID ${id}`);
     const { data, error } = await supabase
       .from('users')
@@ -855,7 +855,7 @@ export class SupabaseStorage implements IStorage {
     return data;
   }
   
-  async updateUser(id: number, userData: Partial<InsertUser>): Promise<User | undefined> {
+  async updateUser(id: string | number, userData: Partial<InsertUser>): Promise<User | undefined> {
     console.log(`Supabase: Atualizando usuário ID ${id}`);
     
     // Se houver senha, hash ela
@@ -893,7 +893,7 @@ export class SupabaseStorage implements IStorage {
     return data;
   }
   
-  async deleteUser(id: number): Promise<boolean> {
+  async deleteUser(id: string | number): Promise<boolean> {
     console.log(`Supabase: Excluindo usuário ID ${id}`);
     
     // 1. Excluir perfil do usuário
@@ -1258,7 +1258,7 @@ export class SupabaseStorage implements IStorage {
     return data;
   }
   
-  async processFormSubmission(id: number, processedById: number): Promise<{client: Client, submission: FormSubmission} | undefined> {
+  async processFormSubmission(id: number, processedById: string | number): Promise<{client: Client, submission: FormSubmission} | undefined> {
     console.log(`Supabase: Processando submissão de formulário ID ${id}`);
     
     // 1. Buscar a submissão
@@ -1284,7 +1284,7 @@ export class SupabaseStorage implements IStorage {
         cpf: formData.cpf || formData.documento || '',
         contact: formData.contato || '',
         company: formData.empresa || formData.company || '',
-        createdById: processedById,
+        createdById: processedById.toString(),
         organizationId: submission.organization_id
       };
       

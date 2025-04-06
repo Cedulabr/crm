@@ -39,7 +39,7 @@ export interface IStorage {
   createClient(client: InsertClient): Promise<Client>;
   updateClient(id: number, client: Partial<InsertClient>): Promise<Client | undefined>;
   deleteClient(id: number): Promise<boolean>;
-  getClientsByCreator(creatorId: number): Promise<Client[]>; // Obter clientes por ID do agente criador
+  getClientsByCreator(creatorId: string | number): Promise<Client[]>; // Obter clientes por ID do agente criador
   getClientsByOrganization(organizationId: number): Promise<Client[]>; // Obter clientes por ID da organização
 
   // Product operations
@@ -68,16 +68,16 @@ export interface IStorage {
   getProposalsByValue(minValue: number, maxValue?: number): Promise<Proposal[]>;
   getProposalsByStatus(status: string): Promise<Proposal[]>;
   getProposalsWithDetails(): Promise<ProposalWithDetails[]>;
-  getProposalsByCreator(creatorId: number): Promise<Proposal[]>; // Obter propostas por ID do agente criador
+  getProposalsByCreator(creatorId: string | number): Promise<Proposal[]>; // Obter propostas por ID do agente criador
   getProposalsByOrganization(organizationId: number): Promise<Proposal[]>; // Obter propostas por ID da organização
   
   // User operations
   getUsers(): Promise<User[]>;
-  getUserById(id: number): Promise<User | undefined>;
+  getUserById(id: string | number): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: RegisterUser): Promise<User>;
-  updateUser(id: number, user: Partial<InsertUser>): Promise<User | undefined>;
-  deleteUser(id: number): Promise<boolean>;
+  updateUser(id: string | number, user: Partial<InsertUser>): Promise<User | undefined>;
+  deleteUser(id: string | number): Promise<boolean>;
   getUsersInOrganization(organizationId: number): Promise<User[]>;
   
   // Authentication
@@ -104,7 +104,7 @@ export interface IStorage {
   getFormSubmission(id: number): Promise<FormSubmission | undefined>;
   createFormSubmission(submission: InsertFormSubmission): Promise<FormSubmission>;
   updateFormSubmissionStatus(id: number, status: string, processedById?: number): Promise<FormSubmission | undefined>; 
-  processFormSubmission(id: number, processedById: number): Promise<{client: Client, submission: FormSubmission} | undefined>;
+  processFormSubmission(id: number, processedById: string | number): Promise<{client: Client, submission: FormSubmission} | undefined>;
   getFormSubmissionsByTemplate(templateId: number): Promise<FormSubmission[]>;
   getFormSubmissionsByStatus(status: string): Promise<FormSubmission[]>;
   getFormSubmissionsByOrganization(organizationId: number): Promise<FormSubmission[]>;
