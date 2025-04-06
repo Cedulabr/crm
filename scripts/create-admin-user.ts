@@ -5,9 +5,9 @@ import { UserRole, UserSector } from '../shared/schema';
 // Carregar variáveis de ambiente
 dotenv.config();
 
-// Credenciais do Supabase
-const supabaseUrl = process.env.VITE_SUPABASE_URL!;
-const supabaseKey = process.env.VITE_SUPABASE_KEY!;
+// Credenciais do Supabase (service role)
+const supabaseUrl = process.env.SUPABASE_URL!;
+const supabaseKey = process.env.SUPABASE_KEY!; // service role key
 
 // Criar cliente Supabase
 const supabase = createClient(supabaseUrl, supabaseKey);

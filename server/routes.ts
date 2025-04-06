@@ -13,6 +13,12 @@ import {
   UserRole
 } from "@shared/schema";
 import { checkSupabaseTables } from './routes/check-supabase-tables';
+import { createClient } from '@supabase/supabase-js';
+
+// Configuração do Supabase
+const supabaseUrl = process.env.SUPABASE_URL || '';
+const supabaseKey = process.env.SUPABASE_KEY || '';
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Importar o storage configurado no arquivo storage.ts
 // Este projeto usa DatabaseStorage para persistência dos dados no PostgreSQL
@@ -26,6 +32,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(authMiddleware);
   
   // Rotas de autenticação não exigem validação de token
+  // Rota redirecionada para a implementação do Supabase Auth
   app.post('/api/auth/login', async (req, res) => {
     try {
       const { email, password } = req.body;
@@ -34,13 +41,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'Email and password are required' });
       }
       
-      const authData = await storage.loginUser(email, password);
+      // Usar autenticação do Supabase diretamente
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
       
-      if (!authData) {
+      if (error || !data) {
+        console.error('Erro na autenticação:', error);
         return res.status(401).json({ message: 'Invalid credentials' });
       }
       
-      res.json(authData);
+      // Buscar o perfil do usuário
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('*, organizations:organization_id(*)')
+        .eq('id', data.user.id)
+        .single();
+        
+      if (userError || !userData) {
+        console.error('Erro ao buscar perfil do usuário:', userError);
+        // Retornar apenas dados básicos se não encontrar o perfil
+        return res.json({
+          token: data.session.access_token,
+          user: {
+            id: data.user.id,
+            email: data.user.email,
+            role: data.user.user_metadata?.role || 'agent',
+            name: data.user.user_metadata?.name || data.user.email,
+            sector: data.user.user_metadata?.sector || null,
+            organizationId: data.user.user_metadata?.organization_id || 1
+          }
+        });
+      }
+      
+      // Formatar dados para retorno
+      const organization = userData.organizations || undefined;
+      delete userData.organizations;
+      
+      res.json({
+        token: data.session.access_token,
+        user: {
+          ...userData,
+          organization
+        }
+      });
     } catch (error) {
       console.error('Error logging in:', error);
       res.status(500).json({ message: 'Error during login' });
@@ -1301,22 +1346,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Rota de login
+  // Rota de login - redireciona para a rota de autenticação do Supabase
   app.post('/api/login', async (req, res) => {
     try {
+      // Redirecionar para a implementação em /api/auth/login
       const { email, password } = req.body;
       
       if (!email || !password) {
         return res.status(400).json({ message: 'Email and password are required' });
       }
       
-      const authData = await storage.loginUser(email, password);
+      // Usar autenticação do Supabase diretamente
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
       
-      if (!authData) {
+      if (error || !data) {
+        console.error('Erro na autenticação:', error);
         return res.status(401).json({ message: 'Invalid credentials' });
       }
       
-      res.json(authData);
+      // Buscar o perfil do usuário
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('*, organizations:organization_id(*)')
+        .eq('id', data.user.id)
+        .single();
+        
+      if (userError || !userData) {
+        console.error('Erro ao buscar perfil do usuário:', userError);
+        // Retornar apenas dados básicos se não encontrar o perfil
+        return res.json({
+          token: data.session.access_token,
+          user: {
+            id: data.user.id,
+            email: data.user.email,
+            role: data.user.user_metadata?.role || 'agent',
+            name: data.user.user_metadata?.name || data.user.email,
+            sector: data.user.user_metadata?.sector || null,
+            organizationId: data.user.user_metadata?.organization_id || 1
+          }
+        });
+      }
+      
+      // Formatar dados para retorno
+      const organization = userData.organizations || undefined;
+      delete userData.organizations;
+      
+      res.json({
+        token: data.session.access_token,
+        user: {
+          ...userData,
+          organization
+        }
+      });
     } catch (error) {
       console.error('Erro no login:', error);
       res.status(500).json({ message: 'Error during login' });

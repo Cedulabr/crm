@@ -30,16 +30,16 @@ export enum UserSector {
   FINANCIAL = 'Financeiro'
 }
 
-// Users table
+// Users table - Adaptado para usar UUID do Supabase
 export const users = pgTable("users", {
-  id: serial("id").primaryKey(),
+  id: text("id").primaryKey(), // UUID do Supabase
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
   // Note: Não armazenamos senhas diretamente, o Supabase fará isso por nós 
   role: text("role").notNull().default(UserRole.AGENT),
   sector: text("sector"), // Setor: Comercial, Operacional, Financeiro
   organizationId: integer("organization_id").references(() => organizations.id), // ID da organização do usuário
-  password: text("password"), // Armazenado com hash
+  password: text("password"), // Armazenado com hash (não usado com Supabase)
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow()
 });
@@ -58,7 +58,7 @@ export const products = pgTable("products", {
   price: text("price")
 });
 
-// Clients table
+// Clients table - Atualizado para usar UUID do Supabase
 export const clients = pgTable("clients", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
@@ -69,7 +69,7 @@ export const clients = pgTable("clients", {
   contact: text("contact"),
   email: text("email"),
   company: text("company"),
-  createdById: integer("created_by_id").references(() => users.id), // ID do usuário que criou o cliente
+  createdById: text("created_by_id").references(() => users.id), // UUID do usuário que criou o cliente (Supabase)
   organizationId: integer("organization_id").references(() => organizations.id), // ID da organização do cliente
   createdAt: timestamp("created_at").defaultNow()
 });
@@ -81,7 +81,7 @@ export const banks = pgTable("banks", {
   price: text("price")
 });
 
-// Proposals table
+// Proposals table - Atualizado para usar UUID do Supabase
 export const proposals = pgTable("proposals", {
   id: serial("id").primaryKey(),
   clientId: integer("client_id").references(() => clients.id),
@@ -91,7 +91,7 @@ export const proposals = pgTable("proposals", {
   value: text("value"),
   comments: text("comments"),
   status: text("status").notNull(), // 'em_negociacao', 'aceita', 'em_analise', 'recusada'
-  createdById: integer("created_by_id").references(() => users.id), // ID do usuário que criou a proposta
+  createdById: text("created_by_id").references(() => users.id), // UUID do usuário que criou a proposta (Supabase)
   organizationId: integer("organization_id").references(() => organizations.id), // ID da organização da proposta
   createdAt: timestamp("created_at").defaultNow()
 });
@@ -175,7 +175,7 @@ export enum FormFieldType {
   CURRENCY = 'currency'
 }
 
-// Tabela de modelos de formulários
+// Tabela de modelos de formulários - Atualizado para usar UUID do Supabase
 export const formTemplates = pgTable("form_templates", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
@@ -183,20 +183,20 @@ export const formTemplates = pgTable("form_templates", {
   kanbanColumn: text("kanban_column").notNull().default("lead"), // Coluna do kanban onde novos leads serão colocados
   fields: json("fields").default("[]"), // Array de campos do formulário
   active: boolean("active").notNull().default(true),
-  createdById: integer("created_by_id").references(() => users.id),
+  createdById: text("created_by_id").references(() => users.id), // UUID do usuário que criou o modelo (Supabase)
   organizationId: integer("organization_id").references(() => organizations.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow()
 });
 
-// Tabela de submissões de formulários
+// Tabela de submissões de formulários - Atualizado para usar UUID do Supabase
 export const formSubmissions = pgTable("form_submissions", {
   id: serial("id").primaryKey(),
   formTemplateId: integer("form_template_id").references(() => formTemplates.id),
   data: jsonb("data").notNull(), // Dados submetidos no formulário
   clientId: integer("client_id").references(() => clients.id), // Cliente criado a partir desta submissão
   status: text("status").notNull().default("novo"), // 'novo', 'processado', 'rejeitado'
-  processedById: integer("processed_by_id").references(() => users.id), // Usuário que processou a submissão
+  processedById: text("processed_by_id").references(() => users.id), // UUID do usuário que processou a submissão (Supabase)
   organizationId: integer("organization_id").references(() => organizations.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow()
