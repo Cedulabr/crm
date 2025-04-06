@@ -58,13 +58,17 @@ export default function Sidebar() {
   }, []);
 
   // Filtrar os itens de menu com base nas permissões do usuário
+  console.log('Sidebar - Current User Role:', currentUser?.role);
+  
   const filteredNavItems = mainNavItems.filter(item => {
     // Se o item não tem restrições de função, mostrar para todos
     if (!item.roles) return true;
     // Se usuário não está carregado, não mostrar itens com restrição
     if (!currentUser) return false;
     // Verificar se a função do usuário está na lista de funções permitidas
-    return item.roles.includes(currentUser.role);
+    const isAllowed = item.roles.includes(currentUser.role);
+    console.log(`Menu Item: ${item.label}, Required Roles: ${item.roles?.join(', ')}, User Role: ${currentUser.role}, Is Allowed: ${isAllowed}`);
+    return isAllowed;
   });
 
   return (

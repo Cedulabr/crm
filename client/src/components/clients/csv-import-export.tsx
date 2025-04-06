@@ -36,7 +36,10 @@ export function CSVImportExport() {
   }, []);
   
   // Verificar se o usuário é administrador ou gerente
-  const isAllowed = userRole === UserRole.SUPERADMIN || userRole === UserRole.MANAGER;
+  // Note: usando strings diretamente para comparação com valor do localStorage
+  const isAllowed = userRole === 'superadmin' || userRole === 'manager';
+  
+  console.log('CSV Import/Export - User Role:', userRole, 'Is Allowed:', isAllowed);
   
   if (!isAllowed) {
     return null;

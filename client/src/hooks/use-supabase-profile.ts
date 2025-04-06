@@ -7,7 +7,7 @@ import { UserRole, UserSector } from "@shared/schema";
 export interface UserProfile {
   id: string;
   name: string;
-  role: UserRole;
+  role: string; // Como string para compatibilidade com localStorage
   sector: UserSector;
   organization_id: number;
   created_at?: string;
