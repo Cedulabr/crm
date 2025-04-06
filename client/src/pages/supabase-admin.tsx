@@ -1,8 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Layout from "@/components/layout/layout";
 import { SupabaseTablesStatus } from "@/components/admin/supabase-tables-status";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
-import { useSupabaseProfile } from "@/hooks/use-supabase-profile";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -11,11 +10,27 @@ import { Redirect } from "wouter";
 
 export default function SupabaseAdminPage() {
   const { session, isLoading: authLoading } = useSupabaseAuth();
-  const { profile, isLoading: profileLoading } = useSupabaseProfile();
+  const [role, setRole] = useState<string | null>(null);
+  const [isRoleLoading, setIsRoleLoading] = useState(true);
+  
+  // Obter papel do usuário do localStorage
+  useEffect(() => {
+    try {
+      const userString = localStorage.getItem("user");
+      if (userString) {
+        const userData = JSON.parse(userString);
+        setRole(userData.role || null);
+      }
+    } catch (error) {
+      console.error("Erro ao obter papel do usuário:", error);
+    } finally {
+      setIsRoleLoading(false);
+    }
+  }, []);
   
   // Verificar se o usuário é superadmin
-  const isSuperAdmin = profile?.role === "superadmin";
-  const isLoading = authLoading || profileLoading;
+  const isSuperAdmin = role === "superadmin";
+  const isLoading = authLoading || isRoleLoading;
 
   if (isLoading) {
     return (

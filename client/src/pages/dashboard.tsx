@@ -75,7 +75,7 @@ export default function Dashboard() {
   return (
     <section id="dashboard" className="fade-in">
       {rolesMismatch && (
-        <Alert variant="warning" className="mb-6">
+        <Alert className="mb-6 border-yellow-500 bg-yellow-50 text-yellow-800">
           <AlertTriangle className="h-4 w-4" />
           <AlertTitle>Divergência de permissões detectada</AlertTitle>
           <AlertDescription className="mt-2">
