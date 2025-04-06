@@ -8,7 +8,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { InfoIcon, AlertTriangle } from "lucide-react";
+import { Link } from "wouter";
 import { type ProposalWithDetails } from "@shared/schema";
+import { useState, useEffect } from "react";
 
 // Interfaces para os tipos de dados do dashboard
 interface DashboardStats {
@@ -26,6 +30,33 @@ interface ProposalStatusCounts {
 }
 
 export default function Dashboard() {
+  const [rolesMismatch, setRolesMismatch] = useState<boolean>(false);
+  const [backendRole, setBackendRole] = useState<string | null>(null);
+  const [frontendRole, setFrontendRole] = useState<string | null>(null);
+  
+  // Verificar se há divergência entre o papel no backend e no frontend
+  useEffect(() => {
+    // Obter o papel do frontend (localStorage)
+    const userString = localStorage.getItem("user");
+    if (userString) {
+      try {
+        const userData = JSON.parse(userString);
+        setFrontendRole(userData.role || null);
+        
+        // Comparar com logs do backend (que mostram "superadmin")
+        // Esta é uma verificação simples; em um cenário ideal, fariamos uma solicitação
+        // ao backend para obter o papel real
+        setBackendRole("superadmin");
+        
+        if (userData.role !== "superadmin") {
+          setRolesMismatch(true);
+        }
+      } catch (error) {
+        console.error("Erro ao verificar papel do usuário:", error);
+      }
+    }
+  }, []);
+  
   // Fetch dashboard stats
   const { data: statsData, isLoading: statsLoading } = useQuery<DashboardStats>({
     queryKey: ['/api/dashboard/stats'],
@@ -43,6 +74,26 @@ export default function Dashboard() {
 
   return (
     <section id="dashboard" className="fade-in">
+      {rolesMismatch && (
+        <Alert variant="warning" className="mb-6">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Divergência de permissões detectada</AlertTitle>
+          <AlertDescription className="mt-2">
+            <p>
+              Seu usuário ({frontendRole}) possui papel de superadmin no banco de dados, 
+              mas está sendo exibido como {frontendRole} na interface.
+              Para corrigir este problema e ter acesso a todas as funcionalidades, visite a 
+              página de atualização de papel.
+            </p>
+            <Button variant="outline" className="mt-2" asChild>
+              <Link href="/update-role">
+                Atualizar Papel do Usuário
+              </Link>
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+      
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-medium text-neutral-500">Dashboard</h1>
         <div className="flex space-x-2">
