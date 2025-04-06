@@ -4,10 +4,16 @@ import { User } from '@shared/schema';
 
 // URL e chave do Supabase
 const SUPABASE_URL = process.env.SUPABASE_URL || '';
+// Usar a chave service_role para operações administrativas
 const SUPABASE_KEY = process.env.SUPABASE_KEY || '';
 
-// Criar cliente Supabase no servidor
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+// Criar cliente Supabase administrativo com a chave service_role
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false
+  }
+});
 
 // Definir um tipo mais flexível para compatibilidade 
 // entre o sistema e o perfil do usuário no Supabase
@@ -43,18 +49,9 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
     }
     
     try {
-      // Melhorar a verificação do token do Supabase
-      // Usar getSession com o token para obter os dados do usuário
-      // Em vez de getUser que pode ter problemas com o token
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError || !sessionData.session) {
-        console.error('Erro ao verificar sessão:', sessionError);
-        return next();
-      }
-      
-      // Obter o usuário da sessão
-      const { data, error } = await supabase.auth.getUser();
+      // Verificar o token diretamente usando a API de autenticação do Supabase
+      // Usar getUser com o token JWT para obter os dados do usuário
+      const { data, error } = await supabase.auth.getUser(token);
       
       if (error || !data.user) {
         console.error('Erro ao verificar token:', error);
@@ -63,8 +60,9 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
       
       const user = data.user;
       
-      // Buscar dados do usuário na tabela users
-      console.log(`Buscando informações completas do usuário ${user.id}`);
+      // Buscar dados do usuário na tabela users usando o cliente administrativo
+      console.log(`Buscando informações do usuário ${user.id} usando chave service_role`);
+      
       const { data: userProfile, error: profileError } = await supabase
         .from('users')
         .select('*')
@@ -87,7 +85,7 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
           updatedAt: null // Sem converter para Date
         };
       } else {
-        console.log('Perfil de usuário encontrado:', userProfile);
+        console.log('Perfil de usuário encontrado:', userProfile.id, userProfile.email);
         
         // Adicionar o usuário completo ao objeto de requisição
         req.user = {
@@ -104,15 +102,15 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
       }
       
       if (req.user) {
-        console.log('Usuário autenticado:', req.user.name, req.user.role);
+        console.log('Usuário autenticado:', req.user.name, '(', req.user.role, ')');
       }
       
+      // Continuar para a próxima rota com o usuário autenticado
+      next();
     } catch (profileError) {
       console.error('Erro ao processar perfil do usuário:', profileError);
+      next(); // Continue sem usuário autenticado
     }
-    
-    next();
-    
   } catch (error) {
     console.error('Erro de autenticação:', error);
     next(); // Continue sem usuário autenticado

@@ -17,8 +17,15 @@ import { createClient } from '@supabase/supabase-js';
 
 // Configuração do Supabase
 const supabaseUrl = process.env.SUPABASE_URL || '';
+// Usar a chave service_role para operações administrativas
 const supabaseKey = process.env.SUPABASE_KEY || '';
-const supabase = createClient(supabaseUrl, supabaseKey);
+// Criar cliente Supabase com permissões administrativas usando a chave service_role
+const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false
+  }
+});
 
 // Importar o storage configurado no arquivo storage.ts
 // Este projeto usa DatabaseStorage para persistência dos dados no PostgreSQL
@@ -393,10 +400,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Rota para testar a conexão com o Supabase usando a chave service_role
+  app.get('/server/api/test-supabase-admin', async (req, res) => {
+    try {
+      console.log('=== TESTE ADMIN SUPABASE ===');
+      console.log('Verificando conexão com chave service_role...');
+      
+      // Usar o cliente Supabase já configurado com a chave service_role
+      const { data: users, error: usersError } = await supabase
+        .from('users')
+        .select('*')
+        .limit(5);
+        
+      if (usersError) {
+        console.error('Erro ao buscar usuários:', usersError);
+        return res.status(500).json({ 
+          message: 'Erro ao acessar tabela users com chave service_role', 
+          error: usersError 
+        });
+      }
+      
+      console.log(`Encontrados ${users?.length || 0} usuários`);
+      
+      return res.json({
+        success: true,
+        message: 'Teste de acesso administrativo ao Supabase bem-sucedido',
+        users_count: users?.length || 0
+      });
+    } catch (error) {
+      console.error('Erro no teste administrativo:', error);
+      return res.status(500).json({ 
+        message: 'Erro no teste administrativo', 
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
   // Rota temporária para testar o Supabase (sem autenticação)
   app.use('/api/test-supabase-client', (req, res, next) => {
     // Desativar middleware de autenticação para esta rota específica
-    req.user = { id: 1, role: UserRole.SUPERADMIN, organizationId: 1 } as any;
+    req.user = { id: "1", role: UserRole.SUPERADMIN, organizationId: 1 } as any;
     next();
   });
   
