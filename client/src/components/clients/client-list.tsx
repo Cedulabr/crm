@@ -9,7 +9,7 @@ import { type Client } from "@shared/schema";
 interface ClientListProps {
   clients: Client[];
   onEdit: (client: Client) => void;
-  onDelete: (id: number) => void;
+  onDelete: (id: number | string) => void;
 }
 
 // Helper to get initials from name
@@ -22,19 +22,19 @@ function getInitials(name: string): string {
     .toUpperCase();
 }
 
-// Helper to get badge props based on kanban column
-function getKanbanBadgeProps(column: string | undefined) {
-  switch(column) {
+// Helper to get badge props based on status
+function getStatusBadgeProps(status: string | undefined) {
+  switch(status) {
     case 'lead':
-      return { variant: 'primary' as const, label: 'Lead' };
+      return { variant: 'default' as const, label: 'Lead' };
     case 'qualificacao':
       return { variant: 'secondary' as const, label: 'Qualificação' };
     case 'negociacao':
       return { variant: 'destructive' as const, label: 'Negociação' };
     case 'fechamento':
-      return { variant: 'success' as const, label: 'Fechamento' };
+      return { variant: 'outline' as const, label: 'Fechamento' };
     default:
-      return { variant: 'outline' as const, label: 'Desconhecido' };
+      return { variant: 'outline' as const, label: 'Novo' };
   }
 }
 
@@ -57,8 +57,8 @@ export default function ClientList({ clients, onEdit, onDelete }: ClientListProp
               <th className="text-left py-3 px-6 text-xs font-medium text-neutral-400 uppercase tracking-wider">Cliente</th>
               <th className="text-left py-3 px-6 text-xs font-medium text-neutral-400 uppercase tracking-wider">Contato</th>
               <th className="text-left py-3 px-6 text-xs font-medium text-neutral-400 uppercase tracking-wider">Empresa</th>
-              <th className="text-left py-3 px-6 text-xs font-medium text-neutral-400 uppercase tracking-wider">Propostas</th>
-              <th className="text-left py-3 px-6 text-xs font-medium text-neutral-400 uppercase tracking-wider">Estágio</th>
+              <th className="text-left py-3 px-6 text-xs font-medium text-neutral-400 uppercase tracking-wider">CPF</th>
+              <th className="text-left py-3 px-6 text-xs font-medium text-neutral-400 uppercase tracking-wider">Status</th>
               <th className="text-left py-3 px-6 text-xs font-medium text-neutral-400 uppercase tracking-wider">Criado em</th>
               <th className="text-left py-3 px-6 text-xs font-medium text-neutral-400 uppercase tracking-wider">Ações</th>
             </tr>
@@ -66,7 +66,9 @@ export default function ClientList({ clients, onEdit, onDelete }: ClientListProp
           <tbody className="divide-y divide-neutral-200">
             {currentClients.length > 0 ? (
               currentClients.map((client) => {
-                const { variant, label } = getKanbanBadgeProps(client.kanban?.column);
+                // Default status badge
+                const { variant, label } = getStatusBadgeProps(undefined);
+                
                 return (
                   <tr key={client.id} className="hover:bg-neutral-50">
                     <td className="px-6 py-4">
@@ -87,9 +89,7 @@ export default function ClientList({ clients, onEdit, onDelete }: ClientListProp
                       <span className="text-sm text-neutral-500">{client.company}</span>
                     </td>
                     <td className="px-6 py-4">
-                      <Badge variant="primary" className="bg-primary-light bg-opacity-10 text-primary-dark text-xs px-3 py-1 rounded-full">
-                        {client.proposalCount || 0} {client.proposalCount === 1 ? 'proposta' : 'propostas'}
-                      </Badge>
+                      <span className="text-sm text-neutral-500">{client.cpf || '-'}</span>
                     </td>
                     <td className="px-6 py-4">
                       <Badge variant={variant} className="text-xs px-3 py-1 rounded-full">

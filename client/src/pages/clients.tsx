@@ -26,7 +26,7 @@ export default function Clients() {
 
   // Delete client mutation
   const deleteClientMutation = useMutation({
-    mutationFn: async (id: number) => {
+    mutationFn: async (id: number | string) => {
       return apiRequest("DELETE", `/api/clients/${id}`, {}, undefined);
     },
     onSuccess: () => {
@@ -59,7 +59,7 @@ export default function Clients() {
   };
 
   // Handle client deletion
-  const handleDeleteClient = (id: number) => {
+  const handleDeleteClient = (id: number | string) => {
     if (window.confirm("Tem certeza que deseja excluir este cliente?")) {
       deleteClientMutation.mutate(id);
     }

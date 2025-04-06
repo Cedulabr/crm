@@ -213,7 +213,7 @@ export class SupabaseStorage implements IStorage {
     return data || [];
   }
   
-  async getClient(id: number): Promise<Client | undefined> {
+  async getClient(id: number | string): Promise<Client | undefined> {
     console.log(`Supabase: Buscando cliente ID ${id}`);
     const { data, error } = await supabase
       .from('clients')
@@ -245,7 +245,7 @@ export class SupabaseStorage implements IStorage {
     return data;
   }
   
-  async updateClient(id: number, client: Partial<InsertClient>): Promise<Client | undefined> {
+  async updateClient(id: number | string, client: Partial<InsertClient>): Promise<Client | undefined> {
     console.log(`Supabase: Atualizando cliente ID ${id}`);
     const { data, error } = await supabase
       .from('clients')
@@ -262,7 +262,7 @@ export class SupabaseStorage implements IStorage {
     return data;
   }
   
-  async deleteClient(id: number): Promise<boolean> {
+  async deleteClient(id: number | string): Promise<boolean> {
     console.log(`Supabase: Excluindo cliente ID ${id}`);
     const { error } = await supabase
       .from('clients')
@@ -660,7 +660,7 @@ export class SupabaseStorage implements IStorage {
   }
   
   // Métodos auxiliares para buscar múltiplas entidades de uma vez
-  private async getClientsByIds(ids: number[]): Promise<Client[]> {
+  private async getClientsByIds(ids: (number | string)[]): Promise<Client[]> {
     if (ids.length === 0) return [];
     
     const { data, error } = await supabase

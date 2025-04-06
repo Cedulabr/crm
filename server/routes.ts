@@ -1178,7 +1178,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const id = parseInt(req.params.id);
       
       // Verificar se o usuário tem permissão para visualizar este usuário
-      if (req.user.role === UserRole.AGENT && req.user.id !== id) {
+      if (req.user.role === UserRole.AGENT && req.user.id.toString() !== id.toString()) {
         return res.status(403).json({ message: 'You do not have permission to view this user' });
       }
       
@@ -1261,7 +1261,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Verificar permissões
-      if (req.user.role === UserRole.AGENT && req.user.id !== id) {
+      if (req.user.role === UserRole.AGENT && req.user.id.toString() !== id.toString()) {
         return res.status(403).json({ message: 'You can only update your own account' });
       }
       
@@ -1340,7 +1340,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Um usuário não pode excluir a si mesmo
-      if (req.user.id === id) {
+      if (req.user.id.toString() === id.toString()) {
         return res.status(403).json({ message: 'You cannot delete your own account' });
       }
       
@@ -1368,7 +1368,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Verificar permissões
-      if (req.user.role === UserRole.AGENT && req.user.id !== id) {
+      if (req.user.role === UserRole.AGENT && req.user.id.toString() !== id.toString()) {
         return res.status(403).json({ message: 'You can only reset your own password' });
       }
       
