@@ -1,6 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
+import { createClient } from '@supabase/supabase-js';
 import { User } from '@shared/schema';
+
+// URL e chave do Supabase
+const SUPABASE_URL = process.env.SUPABASE_URL || '';
+const SUPABASE_KEY = process.env.SUPABASE_KEY || '';
+
+// Criar cliente Supabase no servidor
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // Estender o tipo Request para adicionar o usuário
 declare global {
@@ -11,11 +18,8 @@ declare global {
   }
 }
 
-// Segredo usado para verificar os tokens JWT
-const JWT_SECRET = process.env.JWT_SECRET || 'seu_segredo_jwt_super_seguro';
-
-// Middleware para verificar o token JWT e extrair o usuário
-export const authMiddleware = (req: Request, res: Response, next: NextFunction) => {
+// Middleware para verificar o token JWT do Supabase e extrair o usuário
+export const authMiddleware = async (req: Request, res: Response, next: NextFunction) => {
   try {
     // Obter o token do cabeçalho Authorization
     const authHeader = req.headers.authorization;
@@ -30,11 +34,27 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction) 
       return next(); // Continue sem usuário autenticado
     }
     
-    // Verificar e decodificar o token
-    const decoded = jwt.verify(token, JWT_SECRET) as User;
+    // Verificar o token do Supabase
+    const { data: { user }, error } = await supabase.auth.getUser(token);
     
-    // Adicionar o usuário decodificado ao objeto de requisição
-    req.user = decoded;
+    if (error || !user) {
+      console.error('Erro ao verificar token:', error);
+      return next();
+    }
+    
+    // Adicionar o usuário ao objeto de requisição
+    // Fazendo uma conversão segura para o tipo User
+    req.user = {
+      id: parseInt(user.id) || 0, // Convertendo para número
+      email: user.email || '',
+      role: user.user_metadata?.role || 'agent',
+      name: user.user_metadata?.name || user.email || '',
+      sector: null,
+      createdAt: null,
+      organizationId: user.user_metadata?.organization_id || 1,
+      password: null,
+      updatedAt: null
+    };
     
     next();
   } catch (error) {

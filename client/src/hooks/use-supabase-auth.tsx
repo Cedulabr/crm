@@ -80,6 +80,21 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
       const data = await loginWithEmailPassword(email, password);
       setUser(data.user);
       setSession(data.session);
+      
+      // Salvar token no localStorage para uso nas requisições à API
+      if (data.session && data.session.access_token) {
+        localStorage.setItem("token", data.session.access_token);
+        
+        // Salvar informações do usuário para uso na interface
+        if (data.user) {
+          localStorage.setItem("user", JSON.stringify({
+            id: data.user.id,
+            email: data.user.email || '',
+            role: data.user.user_metadata?.role || 'agent',
+            name: data.user.user_metadata?.name || data.user.email || ''
+          }));
+        }
+      }
       return data;
     } catch (error: any) {
       toast({
@@ -99,6 +114,21 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
       const data = await registerWithEmailPassword(email, password, userData);
       setUser(data.user);
       setSession(data.session);
+      
+      // Salvar token no localStorage para uso nas requisições à API
+      if (data.session && data.session.access_token) {
+        localStorage.setItem("token", data.session.access_token);
+        
+        // Salvar informações do usuário para uso na interface
+        if (data.user) {
+          localStorage.setItem("user", JSON.stringify({
+            id: data.user.id,
+            email: data.user.email || '',
+            role: data.user.user_metadata?.role || 'agent',
+            name: data.user.user_metadata?.name || data.user.email || ''
+          }));
+        }
+      }
       return data;
     } catch (error: any) {
       toast({
