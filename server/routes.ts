@@ -473,12 +473,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('Conexão com Supabase bem-sucedida:', connectionTest);
       
       // Tentar criar um cliente de teste
+      
+      // Usar um UUID válido para o usuário criador
+      // Isso é necessário porque o campo created_by_id no Supabase espera um UUID
+      // Para um ambiente real, isso seria o ID real do usuário autenticado
       const testClient = {
         name: "Cliente Teste Supabase",
         email: "cliente.teste@example.com",
         phone: "(71) 98765-4321",
         cpf: "123.456.789-00",
-        createdById: "1",
+        createdById: "4fd63751-d7f7-47b0-a002-dc2ad8b32e70", // UUID de um usuário que sabemos que existe
         organizationId: 1
       };
       
@@ -486,9 +490,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Tenta inserir diretamente com o supabase
       console.log('Inserindo cliente direto no Supabase...');
+      
+      // Converter para o formato esperado pelo Supabase (snake_case)
+      const supabaseClient = {
+        name: testClient.name,
+        email: testClient.email,
+        phone: testClient.phone,
+        cpf: testClient.cpf,
+        created_by_id: testClient.createdById,
+        organization_id: testClient.organizationId
+      };
+      
+      console.log('Dados adaptados para inserção direta:', supabaseClient);
+      
       const { data: directInsert, error: directError } = await supabase
         .from('clients')
-        .insert(testClient)
+        .insert(supabaseClient)
         .select();
         
       if (directError) {
