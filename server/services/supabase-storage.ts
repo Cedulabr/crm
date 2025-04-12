@@ -851,6 +851,7 @@ export class SupabaseStorage implements IStorage {
     console.log('Supabase: Criando novo usuário');
     
     // 1. Criar o usuário na autenticação do Supabase
+    // Aqui precisamos manter a estrutura específica requerida pela API do Supabase Auth
     const { data: authData, error: authError } = await supabase.auth.admin.createUser({
       email: user.email,
       password: user.password,
@@ -874,17 +875,27 @@ export class SupabaseStorage implements IStorage {
     const hashedPassword = await bcrypt.hash(user.password, 10);
     
     // 2. Criar perfil do usuário na tabela profiles
+    // Preparar dados do usuário (sem a senha) para conversão
+    const userData = {
+      id: authData.user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      sector: user.sector,
+      organizationId: user.organizationId
+    };
+    
+    // Usar a função utilitária para converter camelCase para snake_case
+    const userDataForDb = convertObjectToSnakeCase(userData);
+    
+    // Adicionar senha hasheada (já está em formato adequado, não precisa conversão)
+    userDataForDb.password = hashedPassword;
+    
+    console.log('Dados adaptados para inserção de usuário:', {...userDataForDb, password: '[REDACTED]'});
+    
     const { data, error } = await supabase
       .from('users')
-      .insert({
-        id: authData.user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        sector: user.sector,
-        organization_id: user.organizationId,
-        password: hashedPassword
-      })
+      .insert(userDataForDb)
       .select()
       .single();
       
@@ -901,39 +912,86 @@ export class SupabaseStorage implements IStorage {
   async updateUser(id: string | number, userData: Partial<InsertUser>): Promise<User | undefined> {
     console.log(`Supabase: Atualizando usuário ID ${id}`);
     
+    // Fazer uma cópia para não modificar o original
+    const userDataCopy = {...userData};
+    
     // Se houver senha, hash ela
-    if (userData.password) {
-      userData.password = await bcrypt.hash(userData.password, 10);
-    }
-    
-    const { data, error } = await supabase
-      .from('users')
-      .update(userData)
-      .eq('id', id)
-      .select()
-      .single();
+    if (userDataCopy.password) {
+      const hashedPassword = await bcrypt.hash(userDataCopy.password, 10);
+      // Remover a senha do objeto para não incluí-la na conversão
+      delete userDataCopy.password;
       
-    if (error) {
-      console.error(`Erro ao atualizar usuário ${id}:`, error);
-      return undefined;
-    }
-    
-    // Se for atualização de email ou dados de usuário, atualizar também no Auth
-    if (userData.email || userData.name || userData.role) {
-      try {
-        await supabase.auth.admin.updateUserById(id.toString(), {
-          email: userData.email,
-          user_metadata: {
-            name: userData.name,
-            role: userData.role
-          }
-        });
-      } catch (authError) {
-        console.error(`Erro ao atualizar usuário ${id} na autenticação:`, authError);
+      // Converter os outros campos para snake_case
+      const userDataForDb = convertObjectToSnakeCase(userDataCopy);
+      // Adicionar a senha hasheada de volta
+      userDataForDb.password = hashedPassword;
+      
+      console.log('Dados adaptados para atualização de usuário:', {...userDataForDb, password: '[REDACTED]'});
+      
+      const { data, error } = await supabase
+        .from('users')
+        .update(userDataForDb)
+        .eq('id', id)
+        .select()
+        .single();
+        
+      if (error) {
+        console.error(`Erro ao atualizar usuário ${id}:`, error);
+        return undefined;
       }
+      
+      // Se for atualização de email ou dados de usuário, atualizar também no Auth
+      if (userData.email || userData.name || userData.role) {
+        try {
+          await supabase.auth.admin.updateUserById(id.toString(), {
+            email: userData.email,
+            user_metadata: {
+              name: userData.name,
+              role: userData.role
+            }
+          });
+        } catch (authError) {
+          console.error(`Erro ao atualizar usuário ${id} na autenticação:`, authError);
+        }
+      }
+      
+      return data;
     }
-    
-    return data;
+    else {
+      // Sem senha, podemos apenas converter tudo
+      const userDataForDb = convertObjectToSnakeCase(userDataCopy);
+      
+      console.log('Dados adaptados para atualização de usuário:', userDataForDb);
+      
+      const { data, error } = await supabase
+        .from('users')
+        .update(userDataForDb)
+        .eq('id', id)
+        .select()
+        .single();
+        
+      if (error) {
+        console.error(`Erro ao atualizar usuário ${id}:`, error);
+        return undefined;
+      }
+      
+      // Se for atualização de email ou dados de usuário, atualizar também no Auth
+      if (userData.email || userData.name || userData.role) {
+        try {
+          await supabase.auth.admin.updateUserById(id.toString(), {
+            email: userData.email,
+            user_metadata: {
+              name: userData.name,
+              role: userData.role
+            }
+          });
+        } catch (authError) {
+          console.error(`Erro ao atualizar usuário ${id} na autenticação:`, authError);
+        }
+      }
+      
+      return data;
+    }
   }
   
   async deleteUser(id: string | number): Promise<boolean> {
@@ -1075,9 +1133,15 @@ export class SupabaseStorage implements IStorage {
   
   async createOrganization(organizationData: InsertOrganization): Promise<Organization> {
     console.log('Supabase: Criando nova organização');
+    
+    // Usar a função utilitária para converter camelCase para snake_case
+    const orgData = convertObjectToSnakeCase(organizationData);
+    
+    console.log('Dados adaptados para inserção de organização:', orgData);
+    
     const { data, error } = await supabase
       .from('organizations')
-      .insert(organizationData)
+      .insert(orgData)
       .select()
       .single();
       
@@ -1091,9 +1155,15 @@ export class SupabaseStorage implements IStorage {
   
   async updateOrganization(id: number, organizationData: Partial<InsertOrganization>): Promise<Organization | undefined> {
     console.log(`Supabase: Atualizando organização ID ${id}`);
+    
+    // Usar a função utilitária para converter camelCase para snake_case
+    const orgData = convertObjectToSnakeCase(organizationData);
+    
+    console.log('Dados adaptados para atualização de organização:', orgData);
+    
     const { data, error } = await supabase
       .from('organizations')
-      .update(organizationData)
+      .update(orgData)
       .eq('id', id)
       .select()
       .single();
@@ -1169,9 +1239,15 @@ export class SupabaseStorage implements IStorage {
   
   async createFormTemplate(template: InsertFormTemplate): Promise<FormTemplate> {
     console.log('Supabase: Criando novo template de formulário');
+    
+    // Usar a função utilitária para converter camelCase para snake_case
+    const templateData = convertObjectToSnakeCase(template);
+    
+    console.log('Dados adaptados para inserção de template de formulário:', templateData);
+    
     const { data, error } = await supabase
       .from('form_templates')
-      .insert(template)
+      .insert(templateData)
       .select()
       .single();
       
@@ -1266,9 +1342,15 @@ export class SupabaseStorage implements IStorage {
   
   async createFormSubmission(submission: InsertFormSubmission): Promise<FormSubmission> {
     console.log('Supabase: Criando nova submissão de formulário');
+    
+    // Usar a função utilitária para converter camelCase para snake_case
+    const submissionData = convertObjectToSnakeCase(submission);
+    
+    console.log('Dados adaptados para inserção de submissão de formulário:', submissionData);
+    
     const { data, error } = await supabase
       .from('form_submissions')
-      .insert(submission)
+      .insert(submissionData)
       .select()
       .single();
       
@@ -1282,13 +1364,21 @@ export class SupabaseStorage implements IStorage {
   
   async updateFormSubmissionStatus(id: number, status: string, processedById?: number): Promise<FormSubmission | undefined> {
     console.log(`Supabase: Atualizando status da submissão de formulário ID ${id} para ${status}`);
+    
+    const updateData = {
+      status,
+      processedById,
+      processedAt: processedById ? new Date().toISOString() : null
+    };
+    
+    // Usar a função utilitária para converter camelCase para snake_case
+    const updateDataForDb = convertObjectToSnakeCase(updateData);
+    
+    console.log('Dados adaptados para atualização de status:', updateDataForDb);
+    
     const { data, error } = await supabase
       .from('form_submissions')
-      .update({
-        status,
-        processed_by_id: processedById,
-        processed_at: processedById ? new Date().toISOString() : null
-      })
+      .update(updateDataForDb)
       .eq('id', id)
       .select()
       .single();
@@ -1331,10 +1421,15 @@ export class SupabaseStorage implements IStorage {
         organizationId: submission.organization_id
       };
       
+      // Usar a função utilitária para converter camelCase para snake_case
+      const clientData = convertObjectToSnakeCase(newClient);
+      
+      console.log('Dados adaptados para inserção de cliente a partir de submissão:', clientData);
+      
       // 3. Criar o cliente
       const { data: client, error: clientError } = await supabase
         .from('clients')
-        .insert(newClient)
+        .insert(clientData)
         .select()
         .single();
         
@@ -1344,14 +1439,21 @@ export class SupabaseStorage implements IStorage {
       }
       
       // 4. Atualizar status da submissão
+      const updateData = {
+        status: 'processed',
+        processedById: processedById,
+        processedAt: new Date().toISOString(),
+        clientId: client.id
+      };
+      
+      // Usar a função utilitária para converter camelCase para snake_case
+      const updateDataForDb = convertObjectToSnakeCase(updateData);
+      
+      console.log('Dados adaptados para atualização de submissão:', updateDataForDb);
+      
       const { data: updatedSubmission, error: updateError } = await supabase
         .from('form_submissions')
-        .update({
-          status: 'processed',
-          processed_by_id: processedById,
-          processed_at: new Date().toISOString(),
-          client_id: client.id
-        })
+        .update(updateDataForDb)
         .eq('id', id)
         .select()
         .single();
