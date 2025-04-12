@@ -1261,9 +1261,15 @@ export class SupabaseStorage implements IStorage {
   
   async updateFormTemplate(id: number, template: Partial<InsertFormTemplate>): Promise<FormTemplate | undefined> {
     console.log(`Supabase: Atualizando template de formulário ID ${id}`);
+    
+    // Usar a função utilitária para converter camelCase para snake_case
+    const templateData = convertObjectToSnakeCase(template);
+    
+    console.log('Dados adaptados para atualização de template de formulário:', templateData);
+    
     const { data, error } = await supabase
       .from('form_templates')
-      .update(template)
+      .update(templateData)
       .eq('id', id)
       .select()
       .single();
