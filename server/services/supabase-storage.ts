@@ -356,9 +356,15 @@ export class SupabaseStorage implements IStorage {
   
   async createProduct(product: InsertProduct): Promise<Product> {
     console.log('Supabase: Criando novo produto');
+    
+    // Usar a função utilitária para converter camelCase para snake_case
+    const productData = convertObjectToSnakeCase(product);
+    
+    console.log('Dados adaptados para inserção de produto:', productData);
+    
     const { data, error } = await supabase
       .from('products')
-      .insert(product)
+      .insert(productData)
       .select()
       .single();
       
@@ -406,9 +412,15 @@ export class SupabaseStorage implements IStorage {
   
   async createConvenio(convenio: InsertConvenio): Promise<Convenio> {
     console.log('Supabase: Criando novo convênio');
+    
+    // Usar a função utilitária para converter camelCase para snake_case
+    const convenioData = convertObjectToSnakeCase(convenio);
+    
+    console.log('Dados adaptados para inserção de convênio:', convenioData);
+    
     const { data, error } = await supabase
       .from('convenios')
-      .insert(convenio)
+      .insert(convenioData)
       .select()
       .single();
       
@@ -456,9 +468,15 @@ export class SupabaseStorage implements IStorage {
   
   async createBank(bank: InsertBank): Promise<Bank> {
     console.log('Supabase: Criando novo banco');
+    
+    // Usar a função utilitária para converter camelCase para snake_case
+    const bankData = convertObjectToSnakeCase(bank);
+    
+    console.log('Dados adaptados para inserção de banco:', bankData);
+    
     const { data, error } = await supabase
       .from('banks')
-      .insert(bank)
+      .insert(bankData)
       .select()
       .single();
       
