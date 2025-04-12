@@ -44,15 +44,52 @@ export async function checkSupabaseTables(req: Request, res: Response) {
     );
 
     // Verificar existência das tabelas esperadas
-    const { data: existingTablesData, error: tablesError } = await supabase.rpc('sql', {
-      query: checkTablesSQL
-    });
-
+    // Método direto para verificar tabelas em vez de usar a função SQL personalizada
+    let existingTablesData: Array<{table_name: string, columns: string[]}> = [];
+    let tablesError: any = null;
+    
+    try {
+      // Consultar todas as tabelas do schema public
+      const { data: tables, error } = await supabase
+        .from('pg_tables')
+        .select('tablename, tableowner')
+        .eq('schemaname', 'public');
+        
+      if (error) {
+        tablesError = error;
+      } else {
+        // Para cada tabela, consultar suas colunas
+        const tablePromises = tables?.map(async (table: any) => {
+          const { data: columns, error: colError } = await supabase
+            .from('information_schema.columns')
+            .select('column_name, data_type')
+            .eq('table_name', table.tablename)
+            .eq('table_schema', 'public');
+            
+          return {
+            table_name: table.tablename,
+            columns: columns?.map((col: any) => col.column_name) || []
+          };
+        }) || [];
+        
+        existingTablesData = await Promise.all(tablePromises);
+      }
+    } catch (error: any) {
+      tablesError = error;
+    }
+    
     if (tablesError) {
+      console.error("Erro ao verificar tabelas:", tablesError);
       return res.status(500).json({
-        error: `Erro ao verificar tabelas: ${tablesError.message}`,
+        error: `Erro ao verificar tabelas: ${tablesError.message || 'Erro desconhecido'}`,
         status: 'error',
-        setupSql: setupTablesSQL
+        setup_sql: {
+          tables: setupTablesSQL,
+          organization: createDefaultOrganizationSQL,
+          products: createDefaultProductsSQL,
+          convenios: createDefaultConveniosSQL,
+          banks: createDefaultBanksSQL
+        }
       });
     }
 
@@ -176,7 +213,13 @@ export async function checkSupabaseTables(req: Request, res: Response) {
     return res.status(500).json({
       error: `Erro interno ao verificar tabelas: ${error.message}`,
       status: 'error',
-      setupSql: setupTablesSQL
+      setup_sql: {
+        tables: setupTablesSQL,
+        organization: createDefaultOrganizationSQL,
+        products: createDefaultProductsSQL,
+        convenios: createDefaultConveniosSQL,
+        banks: createDefaultBanksSQL
+      }
     });
   }
 }
