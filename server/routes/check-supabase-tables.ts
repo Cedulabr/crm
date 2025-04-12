@@ -44,37 +44,66 @@ export async function checkSupabaseTables(req: Request, res: Response) {
     );
 
     // Verificar existência das tabelas esperadas
-    // Método direto para verificar tabelas em vez de usar a função SQL personalizada
+    // Método usando tentativas diretas de acesso às tabelas para verificar existência
     let existingTablesData: Array<{table_name: string, columns: string[]}> = [];
     let tablesError: any = null;
     
     try {
-      // Consultar todas as tabelas do schema public
-      const { data: tables, error } = await supabase
-        .from('pg_tables')
-        .select('tablename, tableowner')
-        .eq('schemaname', 'public');
-        
-      if (error) {
-        tablesError = error;
-      } else {
-        // Para cada tabela, consultar suas colunas
-        const tablePromises = tables?.map(async (table: any) => {
-          const { data: columns, error: colError } = await supabase
-            .from('information_schema.columns')
-            .select('column_name, data_type')
-            .eq('table_name', table.tablename)
-            .eq('table_schema', 'public');
-            
+      // Verificar cada tabela esperada diretamente
+      const tablePromises = EXPECTED_TABLES.map(async (tableName) => {
+        try {
+          // Tentar fazer uma consulta COUNT para verificar se a tabela existe
+          const { count, error } = await supabase
+            .from(tableName)
+            .select('*', { count: 'exact', head: true });
+          
+          // Se não houver erro, a tabela existe
+          const exists = !error;
+          
+          // Obter informações sobre as colunas (opcional)
+          let columns: string[] = [];
+          
+          if (exists) {
+            // Obter uma amostra de dados para descobrir os nomes das colunas
+            const { data: sampleData, error: sampleError } = await supabase
+              .from(tableName)
+              .select('*')
+              .limit(1);
+              
+            if (!sampleError && sampleData && sampleData.length > 0) {
+              // Extrair nomes das colunas do primeiro registro
+              columns = Object.keys(sampleData[0]);
+            }
+          }
+          
           return {
-            table_name: table.tablename,
-            columns: columns?.map((col: any) => col.column_name) || []
+            table_name: tableName,
+            exists,
+            columns,
+            error: error ? error.message : null
           };
-        }) || [];
-        
-        existingTablesData = await Promise.all(tablePromises);
-      }
+        } catch (err: any) {
+          console.error(`Erro ao verificar tabela ${tableName}:`, err);
+          // Considerar que a tabela não existe se houver qualquer erro
+          return {
+            table_name: tableName,
+            exists: false,
+            columns: [],
+            error: err.message
+          };
+        }
+      });
+      
+      const results = await Promise.all(tablePromises);
+      
+      // Mapear resultados para o formato esperado
+      existingTablesData = results.map(result => ({
+        table_name: result.table_name,
+        columns: result.columns
+      }));
+      
     } catch (error: any) {
+      console.error('Erro ao verificar tabelas:', error);
       tablesError = error;
     }
     
@@ -95,10 +124,12 @@ export async function checkSupabaseTables(req: Request, res: Response) {
 
     // Mapear tabelas existentes
     const existingTables = existingTablesData || [];
-    const tableMap = existingTables.reduce((map: any, table: any) => {
-      map[table.table_name] = table.columns;
-      return map;
-    }, {});
+    const tableMap: Record<string, string[]> = {};
+    
+    // Preencher o mapa de tabelas
+    existingTables.forEach(table => {
+      tableMap[table.table_name] = table.columns;
+    });
 
     // Verificar quais tabelas estão faltando
     const missingTables = EXPECTED_TABLES.filter(t => !tableMap[t]);
