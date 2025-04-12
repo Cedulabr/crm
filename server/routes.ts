@@ -443,6 +443,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
     next();
   });
   
+  app.use('/api/test-supabase-proposal', (req, res, next) => {
+    // Desativar middleware de autenticação para esta rota específica
+    req.user = { id: "1", role: UserRole.SUPERADMIN, organizationId: 1 } as any;
+    next();
+  });
+  
+  app.get('/api/test-supabase-proposal', async (req, res) => {
+    try {
+      console.log('=== TESTE DE PROPOSTA SUPABASE ===');
+      console.log('Tentando criar uma proposta de teste...');
+      
+      // Criar um cliente primeiro para associar à proposta
+      const testClient = {
+        name: "Cliente Teste Proposta",
+        email: "cliente.proposta@example.com",
+        phone: "(71) 91234-5678",
+        cpf: "111.222.333-44",
+        createdById: "4fd63751-d7f7-47b0-a002-dc2ad8b32e70", // UUID válido
+        organizationId: 1
+      };
+      
+      console.log('Criando cliente para teste de proposta:', testClient);
+      const client = await storage.createClient(testClient);
+      
+      // Dados da proposta de teste
+      const testProposal = {
+        clientId: client.id,
+        productId: 1, // Assumindo que existe um produto com ID 1
+        value: "10000",
+        installmentValue: "500",
+        installments: 20,
+        status: "em_negociacao",
+        createdById: "4fd63751-d7f7-47b0-a002-dc2ad8b32e70", // UUID válido
+        organizationId: 1
+      };
+      
+      console.log('Criando proposta de teste:', testProposal);
+      const proposal = await storage.createProposal(testProposal);
+      
+      console.log('Proposta criada, agora atualizando...');
+      // Atualizar a proposta
+      const updateData = {
+        value: "12000",
+        installmentValue: "600",
+        status: "aceita"
+      };
+      
+      const updatedProposal = await storage.updateProposal(proposal.id, updateData);
+      
+      res.json({
+        message: "Operações de proposta concluídas com sucesso",
+        client,
+        originalProposal: proposal,
+        updatedProposal
+      });
+    } catch (error) {
+      console.error('Erro no teste de proposta:', error);
+      res.status(500).json({ 
+        message: 'Erro ao testar operações de proposta', 
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
   app.get('/api/test-supabase-client', async (req, res) => {
     try {
       console.log('=== TESTE DO SUPABASE ===');

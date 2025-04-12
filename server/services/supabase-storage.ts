@@ -575,9 +575,37 @@ export class SupabaseStorage implements IStorage {
   
   async updateProposal(id: number, proposal: Partial<InsertProposal>): Promise<Proposal | undefined> {
     console.log(`Supabase: Atualizando proposta ID ${id}`);
+    
+    // Converter camelCase para snake_case para as colunas do Supabase
+    const proposalData = {
+      ...proposal,
+      // Se createdById estiver presente, mapeá-lo para created_by_id
+      ...(proposal.createdById && { created_by_id: proposal.createdById }),
+      // Se organizationId estiver presente, mapeá-lo para organization_id
+      ...(proposal.organizationId && { organization_id: proposal.organizationId }),
+      // Se convenioId estiver presente, mapeá-lo para convenio_id
+      ...(proposal.convenioId && { convenio_id: proposal.convenioId }),
+      // Se clientId estiver presente, mapeá-lo para client_id
+      ...(proposal.clientId && { client_id: proposal.clientId }),
+      // Se productId estiver presente, mapeá-lo para product_id
+      ...(proposal.productId && { product_id: proposal.productId }),
+      // Se bankId estiver presente, mapeá-lo para bank_id
+      ...(proposal.bankId && { bank_id: proposal.bankId }),
+    };
+    
+    // Remover propriedades camelCase que foram convertidas para snake_case
+    if (proposalData.createdById) delete proposalData.createdById;
+    if (proposalData.organizationId) delete proposalData.organizationId;
+    if (proposalData.convenioId) delete proposalData.convenioId;
+    if (proposalData.clientId) delete proposalData.clientId;
+    if (proposalData.productId) delete proposalData.productId;
+    if (proposalData.bankId) delete proposalData.bankId;
+    
+    console.log('Dados adaptados para atualização de proposta:', proposalData);
+    
     const { data, error } = await supabase
       .from('proposals')
-      .update(proposal)
+      .update(proposalData)
       .eq('id', id)
       .select()
       .single();
