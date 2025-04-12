@@ -532,30 +532,28 @@ export class SupabaseStorage implements IStorage {
   async createProposal(proposal: InsertProposal): Promise<Proposal> {
     console.log('Supabase: Criando nova proposta');
     
-    // Converter camelCase para snake_case para as colunas do Supabase
-    const proposalData = {
-      ...proposal,
-      // Se createdById estiver presente, mapeá-lo para created_by_id
-      ...(proposal.createdById && { created_by_id: proposal.createdById }),
-      // Se organizationId estiver presente, mapeá-lo para organization_id
-      ...(proposal.organizationId && { organization_id: proposal.organizationId }),
-      // Se convenioId estiver presente, mapeá-lo para convenio_id
-      ...(proposal.convenioId && { convenio_id: proposal.convenioId }),
-      // Se clientId estiver presente, mapeá-lo para client_id
-      ...(proposal.clientId && { client_id: proposal.clientId }),
-      // Se productId estiver presente, mapeá-lo para product_id
-      ...(proposal.productId && { product_id: proposal.productId }),
-      // Se bankId estiver presente, mapeá-lo para bank_id
-      ...(proposal.bankId && { bank_id: proposal.bankId }),
-    };
+    // Extrair todos os campos para poder manipulá-los individualmente
+    const { 
+      createdById, 
+      organizationId, 
+      convenioId, 
+      clientId, 
+      productId, 
+      bankId,
+      ...restProposal 
+    } = proposal;
     
-    // Remover propriedades camelCase que foram convertidas para snake_case
-    if (proposalData.createdById) delete proposalData.createdById;
-    if (proposalData.organizationId) delete proposalData.organizationId;
-    if (proposalData.convenioId) delete proposalData.convenioId;
-    if (proposalData.clientId) delete proposalData.clientId;
-    if (proposalData.productId) delete proposalData.productId;
-    if (proposalData.bankId) delete proposalData.bankId;
+    // Criar objeto com campos em snake_case
+    const proposalData = {
+      ...restProposal,
+      // Mapear todos os campos camelCase para snake_case
+      ...(createdById && { created_by_id: createdById }),
+      ...(organizationId && { organization_id: organizationId }),
+      ...(convenioId && { convenio_id: convenioId }),
+      ...(clientId && { client_id: clientId }),
+      ...(productId && { product_id: productId }),
+      ...(bankId && { bank_id: bankId })
+    };
     
     console.log('Dados adaptados para inserção de proposta:', proposalData);
     
@@ -576,30 +574,28 @@ export class SupabaseStorage implements IStorage {
   async updateProposal(id: number, proposal: Partial<InsertProposal>): Promise<Proposal | undefined> {
     console.log(`Supabase: Atualizando proposta ID ${id}`);
     
-    // Converter camelCase para snake_case para as colunas do Supabase
-    const proposalData = {
-      ...proposal,
-      // Se createdById estiver presente, mapeá-lo para created_by_id
-      ...(proposal.createdById && { created_by_id: proposal.createdById }),
-      // Se organizationId estiver presente, mapeá-lo para organization_id
-      ...(proposal.organizationId && { organization_id: proposal.organizationId }),
-      // Se convenioId estiver presente, mapeá-lo para convenio_id
-      ...(proposal.convenioId && { convenio_id: proposal.convenioId }),
-      // Se clientId estiver presente, mapeá-lo para client_id
-      ...(proposal.clientId && { client_id: proposal.clientId }),
-      // Se productId estiver presente, mapeá-lo para product_id
-      ...(proposal.productId && { product_id: proposal.productId }),
-      // Se bankId estiver presente, mapeá-lo para bank_id
-      ...(proposal.bankId && { bank_id: proposal.bankId }),
-    };
+    // Extrair todos os campos para poder manipulá-los individualmente
+    const { 
+      createdById, 
+      organizationId, 
+      convenioId, 
+      clientId, 
+      productId, 
+      bankId,
+      ...restProposal 
+    } = proposal;
     
-    // Remover propriedades camelCase que foram convertidas para snake_case
-    if (proposalData.createdById) delete proposalData.createdById;
-    if (proposalData.organizationId) delete proposalData.organizationId;
-    if (proposalData.convenioId) delete proposalData.convenioId;
-    if (proposalData.clientId) delete proposalData.clientId;
-    if (proposalData.productId) delete proposalData.productId;
-    if (proposalData.bankId) delete proposalData.bankId;
+    // Criar objeto com campos em snake_case
+    const proposalData = {
+      ...restProposal,
+      // Mapear todos os campos camelCase para snake_case
+      ...(createdById && { created_by_id: createdById }),
+      ...(organizationId && { organization_id: organizationId }),
+      ...(convenioId && { convenio_id: convenioId }),
+      ...(clientId && { client_id: clientId }),
+      ...(productId && { product_id: productId }),
+      ...(bankId && { bank_id: bankId })
+    };
     
     console.log('Dados adaptados para atualização de proposta:', proposalData);
     

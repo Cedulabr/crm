@@ -468,11 +468,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const client = await storage.createClient(testClient);
       
       // Dados da proposta de teste
+      // Removido o campo installmentValue pois ele não existe no esquema do banco
       const testProposal = {
         clientId: client.id,
         productId: 1, // Assumindo que existe um produto com ID 1
         value: "10000",
-        installmentValue: "500",
         installments: 20,
         status: "em_negociacao",
         createdById: "4fd63751-d7f7-47b0-a002-dc2ad8b32e70", // UUID válido
@@ -484,9 +484,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log('Proposta criada, agora atualizando...');
       // Atualizar a proposta
+      // Removido o campo installmentValue pois ele não existe no esquema do banco
       const updateData = {
         value: "12000",
-        installmentValue: "600",
         status: "aceita"
       };
       
