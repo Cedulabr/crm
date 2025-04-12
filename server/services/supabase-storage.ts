@@ -13,6 +13,7 @@ import {
 } from '@shared/schema';
 import { IStorage } from '../storage';
 import bcrypt from 'bcrypt';
+import { convertObjectToSnakeCase, convertObjectToCamelCase } from '@shared/utils';
 
 // Configuração do Supabase
 const supabaseUrl = process.env.SUPABASE_URL || '';
@@ -232,21 +233,8 @@ export class SupabaseStorage implements IStorage {
   async createClient(client: InsertClient): Promise<Client> {
     console.log('Supabase: Criando novo cliente');
     
-    // Converter camelCase para snake_case para as colunas do Supabase
-    const clientData = {
-      ...client,
-      // Se createdById estiver presente, mapeá-lo para created_by_id
-      ...(client.createdById && { created_by_id: client.createdById }),
-      // Se organizationId estiver presente, mapeá-lo para organization_id
-      ...(client.organizationId && { organization_id: client.organizationId }),
-      // Se convenioId estiver presente, mapeá-lo para convenio_id
-      ...(client.convenioId && { convenio_id: client.convenioId }),
-    };
-    
-    // Remover propriedades camelCase que foram convertidas para snake_case
-    if (clientData.createdById) delete clientData.createdById;
-    if (clientData.organizationId) delete clientData.organizationId;
-    if (clientData.convenioId) delete clientData.convenioId;
+    // Usar a função utilitária para converter camelCase para snake_case
+    const clientData = convertObjectToSnakeCase(client);
     
     console.log('Dados adaptados para inserção:', clientData);
     
@@ -532,28 +520,8 @@ export class SupabaseStorage implements IStorage {
   async createProposal(proposal: InsertProposal): Promise<Proposal> {
     console.log('Supabase: Criando nova proposta');
     
-    // Extrair todos os campos para poder manipulá-los individualmente
-    const { 
-      createdById, 
-      organizationId, 
-      convenioId, 
-      clientId, 
-      productId, 
-      bankId,
-      ...restProposal 
-    } = proposal;
-    
-    // Criar objeto com campos em snake_case
-    const proposalData = {
-      ...restProposal,
-      // Mapear todos os campos camelCase para snake_case
-      ...(createdById && { created_by_id: createdById }),
-      ...(organizationId && { organization_id: organizationId }),
-      ...(convenioId && { convenio_id: convenioId }),
-      ...(clientId && { client_id: clientId }),
-      ...(productId && { product_id: productId }),
-      ...(bankId && { bank_id: bankId })
-    };
+    // Usar a função utilitária para converter camelCase para snake_case
+    const proposalData = convertObjectToSnakeCase(proposal);
     
     console.log('Dados adaptados para inserção de proposta:', proposalData);
     
@@ -574,28 +542,8 @@ export class SupabaseStorage implements IStorage {
   async updateProposal(id: number, proposal: Partial<InsertProposal>): Promise<Proposal | undefined> {
     console.log(`Supabase: Atualizando proposta ID ${id}`);
     
-    // Extrair todos os campos para poder manipulá-los individualmente
-    const { 
-      createdById, 
-      organizationId, 
-      convenioId, 
-      clientId, 
-      productId, 
-      bankId,
-      ...restProposal 
-    } = proposal;
-    
-    // Criar objeto com campos em snake_case
-    const proposalData = {
-      ...restProposal,
-      // Mapear todos os campos camelCase para snake_case
-      ...(createdById && { created_by_id: createdById }),
-      ...(organizationId && { organization_id: organizationId }),
-      ...(convenioId && { convenio_id: convenioId }),
-      ...(clientId && { client_id: clientId }),
-      ...(productId && { product_id: productId }),
-      ...(bankId && { bank_id: bankId })
-    };
+    // Usar a função utilitária para converter camelCase para snake_case
+    const proposalData = convertObjectToSnakeCase(proposal);
     
     console.log('Dados adaptados para atualização de proposta:', proposalData);
     
