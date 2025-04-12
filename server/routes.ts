@@ -509,88 +509,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.get('/api/test-supabase-client', async (req, res) => {
     try {
-      console.log('=== TESTE DO SUPABASE ===');
-      console.log('Tentando criar um cliente de teste...');
+      console.log('=== TESTE DE CLIENTE SUPABASE ===');
+      console.log('Tentando criar e atualizar um cliente de teste...');
       
-      // Conectar ao Supabase diretamente para verificar a conexão
-      const { createClient } = await import('@supabase/supabase-js');
-      const supabase = createClient(
-        process.env.SUPABASE_URL || '',
-        process.env.SUPABASE_KEY || ''
-      );
-      
-      console.log('URL do Supabase:', process.env.SUPABASE_URL?.substring(0, 15) + '...');
-      console.log('Chave do Supabase:', process.env.SUPABASE_KEY?.substring(0, 5) + '...');
-      
-      // Verificar conexão
-      console.log('Testando conexão com Supabase...');
-      const { data: connectionTest, error: connectionError } = await supabase.from('clients').select('count').limit(1);
-      
-      if (connectionError) {
-        console.error('Erro na conexão com Supabase:', connectionError);
-        return res.status(500).json({ 
-          message: 'Erro na conexão com Supabase', 
-          error: connectionError 
-        });
-      }
-      
-      console.log('Conexão com Supabase bem-sucedida:', connectionTest);
-      
-      // Tentar criar um cliente de teste
-      
-      // Usar um UUID válido para o usuário criador
-      // Isso é necessário porque o campo created_by_id no Supabase espera um UUID
-      // Para um ambiente real, isso seria o ID real do usuário autenticado
+      // 1. Criar um cliente para teste
       const testClient = {
-        name: "Cliente Teste Supabase",
-        email: "cliente.teste@example.com",
-        phone: "(71) 98765-4321",
-        cpf: "123.456.789-00",
-        createdById: "4fd63751-d7f7-47b0-a002-dc2ad8b32e70", // UUID de um usuário que sabemos que existe
+        name: 'Cliente Teste Completo',
+        email: 'cliente.teste@example.com',
+        phone: '(71) 98765-4321',
+        cpf: '987.654.321-00',
+        createdById: '4fd63751-d7f7-47b0-a002-dc2ad8b32e70', // ID de um usuário Supabase válido
         organizationId: 1
       };
       
-      console.log('Dados do cliente a ser criado:', testClient);
+      console.log('Criando cliente para teste:', testClient);
+      const client = await storage.createClient(testClient);
       
-      // Tenta inserir diretamente com o supabase
-      console.log('Inserindo cliente direto no Supabase...');
+      // 2. Atualizar o cliente
+      console.log('Cliente criado, agora atualizando...');
+      const updatedClient = await storage.updateClient(client.id, { 
+        name: 'Cliente Teste Atualizado',
+        phone: '(71) 99999-8888',
+        company: 'Empresa Teste'
+      });
       
-      // Converter para o formato esperado pelo Supabase (snake_case)
-      const supabaseClient = {
-        name: testClient.name,
-        email: testClient.email,
-        phone: testClient.phone,
-        cpf: testClient.cpf,
-        created_by_id: testClient.createdById,
-        organization_id: testClient.organizationId
-      };
-      
-      console.log('Dados adaptados para inserção direta:', supabaseClient);
-      
-      const { data: directInsert, error: directError } = await supabase
-        .from('clients')
-        .insert(supabaseClient)
-        .select();
-        
-      if (directError) {
-        console.error('Erro ao inserir direto no Supabase:', directError);
-        return res.status(500).json({ 
-          message: 'Erro ao inserir direto no Supabase', 
-          error: directError 
-        });
-      }
-      
-      console.log('Cliente inserido direto com sucesso:', directInsert);
-      
-      // Usando o storage para criar cliente
-      console.log('Tentando criar cliente usando o storage...');
-      const createdClient = await storage.createClient(testClient);
-      console.log('Cliente criado com storage:', createdClient);
+      // 3. Buscar o cliente pelo ID
+      console.log('Cliente atualizado, agora buscando pelo ID...');
+      const fetchedClient = await storage.getClient(client.id);
       
       res.json({
-        message: "Cliente de teste criado com sucesso!",
-        directInsert,
-        storageClient: createdClient
+        message: 'Operações de cliente concluídas com sucesso',
+        originalClient: client,
+        updatedClient,
+        fetchedClient
       });
     } catch (error) {
       console.error('Erro no teste do Supabase:', error);

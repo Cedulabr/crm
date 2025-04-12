@@ -255,21 +255,8 @@ export class SupabaseStorage implements IStorage {
   async updateClient(id: number | string, client: Partial<InsertClient>): Promise<Client | undefined> {
     console.log(`Supabase: Atualizando cliente ID ${id}`);
     
-    // Converter camelCase para snake_case para as colunas do Supabase
-    const clientData = {
-      ...client,
-      // Se createdById estiver presente, mapeá-lo para created_by_id
-      ...(client.createdById && { created_by_id: client.createdById }),
-      // Se organizationId estiver presente, mapeá-lo para organization_id
-      ...(client.organizationId && { organization_id: client.organizationId }),
-      // Se convenioId estiver presente, mapeá-lo para convenio_id
-      ...(client.convenioId && { convenio_id: client.convenioId }),
-    };
-    
-    // Remover propriedades camelCase que foram convertidas para snake_case
-    if (clientData.createdById) delete clientData.createdById;
-    if (clientData.organizationId) delete clientData.organizationId;
-    if (clientData.convenioId) delete clientData.convenioId;
+    // Usar a função utilitária para converter camelCase para snake_case
+    const clientData = convertObjectToSnakeCase(client);
     
     console.log('Dados adaptados para atualização:', clientData);
     
