@@ -15,17 +15,8 @@ import {
 import { checkSupabaseTables } from './routes/check-supabase-tables';
 import { createClient } from '@supabase/supabase-js';
 
-// Configuração do Supabase
-const supabaseUrl = process.env.SUPABASE_URL || '';
-// Usar a chave service_role para operações administrativas
-const supabaseKey = process.env.SUPABASE_KEY || '';
-// Criar cliente Supabase com permissões administrativas usando a chave service_role
-const supabase = createClient(supabaseUrl, supabaseKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false
-  }
-});
+// Importar o cliente Supabase centralizado
+import supabase, { isSupabaseConfigured } from './supabaseClient';
 
 // Importar o storage configurado no arquivo storage.ts
 // Este projeto usa DatabaseStorage para persistência dos dados no PostgreSQL
@@ -35,8 +26,22 @@ import { authMiddleware, requireAuth, checkRole } from "./middleware/auth";
 import { openAIService } from "./services/openai-service";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Aplicar middleware de autenticação a todas as rotas
-  app.use(authMiddleware);
+  // Rota de status para verificar a configuração do Supabase
+  app.get('/api/status', (req, res) => {
+    res.json({
+      status: 'online',
+      supabase: isSupabaseConfigured() ? 'configured' : 'not_configured',
+      timestamp: new Date().toISOString()
+    });
+  });
+
+  // Aplicar middleware de autenticação a todas as rotas, exceto /api/status
+  app.use((req, res, next) => {
+    if (req.path === '/api/status') {
+      return next();
+    }
+    authMiddleware(req, res, next);
+  });
   
   // Rotas de autenticação não exigem validação de token
   // Rota redirecionada para a implementação do Supabase Auth

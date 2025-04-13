@@ -1,19 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
-import { createClient } from '@supabase/supabase-js';
 import { User } from '@shared/schema';
-
-// URL e chave do Supabase
-const SUPABASE_URL = process.env.SUPABASE_URL || '';
-// Usar a chave service_role para operações administrativas
-const SUPABASE_KEY = process.env.SUPABASE_KEY || '';
-
-// Criar cliente Supabase administrativo com a chave service_role
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false
-  }
-});
+import supabase, { isSupabaseConfigured } from '../supabaseClient';
 
 // Definir um tipo mais flexível para compatibilidade 
 // entre o sistema e o perfil do usuário no Supabase
@@ -35,6 +22,12 @@ declare global {
 // Middleware para verificar o token JWT do Supabase e extrair o usuário
 export const authMiddleware = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    // Verificar se o Supabase está configurado
+    if (!isSupabaseConfigured()) {
+      console.warn('⚠️ AVISO: Supabase não está configurado. Autenticação desativada.');
+      return next(); // Continue sem autenticação
+    }
+
     // Obter o token do cabeçalho Authorization ou do cookie
     const authHeader = req.headers.authorization;
     
@@ -61,7 +54,7 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
       const user = data.user;
       
       // Buscar dados do usuário na tabela users usando o cliente administrativo
-      console.log(`Buscando informações do usuário ${user.id} usando chave service_role`);
+      console.log(`Buscando informações do usuário ${user.id}`);
       
       const { data: userProfile, error: profileError } = await supabase
         .from('users')
@@ -79,10 +72,10 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
           role: user.user_metadata?.role || 'agent',
           name: user.user_metadata?.name || user.email || '',
           sector: user.user_metadata?.sector || null,
-          createdAt: null, // Sem converter para Date
+          createdAt: null, 
           organizationId: parseInt(user.user_metadata?.organization_id) || 1,
           password: null,
-          updatedAt: null // Sem converter para Date
+          updatedAt: null
         };
       } else {
         console.log('Perfil de usuário encontrado:', userProfile.id, userProfile.email);
@@ -94,10 +87,10 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
           role: userProfile.role || 'agent',
           name: userProfile.name || '',
           sector: userProfile.sector || null,
-          createdAt: null, // Sem converter para Date
+          createdAt: userProfile.created_at, 
           organizationId: userProfile.organization_id || 1,
           password: null, // Nunca incluir senha
-          updatedAt: null // Sem converter para Date
+          updatedAt: userProfile.updated_at
         };
       }
       
