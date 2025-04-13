@@ -1,10 +1,19 @@
+// Garantir que as variáveis de ambiente sejam carregadas antes de qualquer outra importação
 import dotenv from "dotenv";
 // Carregar variáveis de ambiente do arquivo .env
-dotenv.config();
+const envResult = dotenv.config();
 
 // Verificar se as variáveis de ambiente do Supabase estão definidas
-console.log("SUPABASE_URL está definido?", !!process.env.SUPABASE_URL);
-console.log("SUPABASE_KEY está definido?", !!process.env.SUPABASE_KEY);
+console.log("📦 Verificando variáveis de ambiente do Supabase");
+console.log("SUPABASE_URL está definido:", !!process.env.SUPABASE_URL);
+console.log("SUPABASE_KEY está definido:", !!process.env.SUPABASE_KEY);
+
+// Exibir detalhes do carregamento .env (sem exibir valores sensíveis)
+if (envResult.error) {
+  console.warn("⚠️ Erro ao carregar arquivo .env:", envResult.error.message);
+} else {
+  console.log("✅ Arquivo .env carregado com sucesso!");
+}
 
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";

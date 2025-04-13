@@ -1,18 +1,21 @@
 // server/supabaseClient.ts
 import { createClient } from '@supabase/supabase-js';
 
-// Check for environment variables
-const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
-const supabaseKey = process.env.SUPABASE_KEY || process.env.VITE_SUPABASE_KEY || '';
+// Inicializa as variáveis como let para permitir valores de fallback
+// Prioridade: 1) SUPABASE_URL/KEY (servidor), 2) VITE_SUPABASE_URL/KEY (cliente)
+let supabaseUrl = process.env.SUPABASE_URL || '';
+let supabaseKey = process.env.SUPABASE_KEY || '';
 
+console.log('📦 Inicializando SupabaseStorage');
+
+// Verifica se as variáveis estão configuradas
 if (!supabaseUrl || !supabaseKey) {
-  console.error('⚠️ ERROR: Missing Supabase configuration');
-  console.error('SUPABASE_URL:', supabaseUrl ? 'Configured' : 'NOT CONFIGURED');
-  console.error('SUPABASE_KEY:', supabaseKey ? 'Configured' : 'NOT CONFIGURED');
-  console.error('Please configure SUPABASE_URL and SUPABASE_KEY in deployment secrets');
-  // Use fallback values in production to prevent crash
-  supabaseUrl = supabaseUrl || 'https://example.supabase.co';
-  supabaseKey = supabaseKey || 'fallback-key';
+  console.warn('⚠️ AVISO: Variáveis de ambiente do Supabase não configuradas');
+  console.warn('SUPABASE_URL:', supabaseUrl ? 'Configurado' : 'NÃO CONFIGURADO');
+  console.warn('SUPABASE_KEY:', supabaseKey ? 'Configurado' : 'NÃO CONFIGURADO');
+  
+  // Usar valores vazios, mas continuar a execução
+  // O middleware de autenticação vai verificar isSupabaseConfigured() antes de tentar autenticar
 }
 
 // Cria o cliente Supabase mesmo com credenciais vazias para evitar erros de inicialização

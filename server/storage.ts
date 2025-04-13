@@ -23,6 +23,9 @@ import {
   type InsertFormSubmission
 } from "@shared/schema";
 
+// Importar a implementação do Supabase
+import { supabaseStorage } from "./SupabaseStorage";
+
 export interface IStorage {
   // Client operations
   getClients(): Promise<Client[]>;
