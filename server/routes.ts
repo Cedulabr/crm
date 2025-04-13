@@ -679,13 +679,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Criar um novo cliente com os dados do usuário autenticado
           const newClient = {
             name: clientName,
-            cpf: clientCpf || null,
-            phone: clientPhone || null,
-            convenioId: proposalData.convenioId || null,
-            birthDate: null,
-            contact: null,
-            email: null,
-            company: null,
+            cpf: clientCpf || undefined,
+            phone: clientPhone || undefined,
+            convenioId: proposalData.convenioId || undefined,
+            birthDate: undefined,
+            contact: undefined,
+            email: undefined,
+            company: undefined,
             organizationId: req.user.organizationId || 1,
             createdById: req.user.id
           };
