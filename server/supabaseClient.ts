@@ -1,20 +1,15 @@
 // server/supabaseClient.ts
 import { createClient } from '@supabase/supabase-js';
 
-// Verifica se as variáveis de ambiente estão definidas
-// No ambiente de produção, essas variáveis devem ser configuradas nas configurações do deploy
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_KEY;
-
-// Mostra informações detalhadas para debug
-console.log('Configuração do Supabase:');
-console.log('SUPABASE_URL:', supabaseUrl ? 'Configurado' : 'NÃO CONFIGURADO');
-console.log('SUPABASE_KEY:', supabaseKey ? 'Configurado' : 'NÃO CONFIGURADO');
+// Check for environment variables
+const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_KEY || process.env.VITE_SUPABASE_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
-  console.warn('⚠️ AVISO: As variáveis de ambiente SUPABASE_URL e/ou SUPABASE_KEY não estão definidas');
-  console.warn('A aplicação pode funcionar com funcionalidade limitada');
-  // Continuamos a execução para permitir o deploy, mesmo que com funcionalidade limitada
+  console.error('⚠️ ERROR: Missing Supabase configuration');
+  console.error('SUPABASE_URL:', supabaseUrl ? 'Configured' : 'NOT CONFIGURED');
+  console.error('SUPABASE_KEY:', supabaseKey ? 'Configured' : 'NOT CONFIGURED');
+  throw new Error('Supabase configuration required. Please set SUPABASE_URL and SUPABASE_KEY environment variables.');
 }
 
 // Cria o cliente Supabase mesmo com credenciais vazias para evitar erros de inicialização
