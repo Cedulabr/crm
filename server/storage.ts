@@ -1,13 +1,4 @@
 import { 
-  clients, 
-  products, 
-  convenios, 
-  banks, 
-  proposals,
-  users,
-  organizations,
-  formTemplates,
-  formSubmissions,
   type Client, 
   type InsertClient,
   type Product,

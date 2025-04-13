@@ -1,5 +1,3 @@
-import { pgTable, text, serial, integer, boolean, timestamp, decimal, json, jsonb } from "drizzle-orm/pg-core";
-import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 // User roles
@@ -9,20 +7,6 @@ export enum UserRole {
   SUPERADMIN = 'superadmin'
 }
 
-// Organization table - Para agrupar usuários da mesma empresa/organização
-export const organizations = pgTable("organizations", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  address: text("address"), // Endereço da empresa
-  phone: text("phone"), // Telefone de contato
-  cnpj: text("cnpj"), // CNPJ da empresa
-  email: text("email"), // Email de contato
-  website: text("website"), // Site da empresa
-  description: text("description"), // Descrição ou observações
-  logo: text("logo"), // URL da logo
-  createdAt: timestamp("created_at").defaultNow()
-});
-
 // User sectors enum
 export enum UserSector {
   COMMERCIAL = 'Comercial',
@@ -30,100 +14,279 @@ export enum UserSector {
   FINANCIAL = 'Financeiro'
 }
 
-// Users table - Adaptado para usar UUID do Supabase
-export const users = pgTable("users", {
-  id: text("id").primaryKey(), // UUID do Supabase
-  name: text("name").notNull(),
-  email: text("email").notNull().unique(),
-  // Note: Não armazenamos senhas diretamente, o Supabase fará isso por nós 
-  role: text("role").notNull().default(UserRole.AGENT),
-  sector: text("sector"), // Setor: Comercial, Operacional, Financeiro
-  organizationId: integer("organization_id").references(() => organizations.id), // ID da organização do usuário
-  password: text("password"), // Armazenado com hash (não usado com Supabase)
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow()
-});
+// Definição de tipos de dados para uso com Supabase
+// Os nomes de campos em camelCase são usados no frontend, mas o banco usa snake_case
 
-// Convenios (agreements) table
-export const convenios = pgTable("convenios", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  price: text("price")
-});
+export interface Organization {
+  id: number;
+  name: string;
+  address?: string;
+  phone?: string;
+  cnpj?: string;
+  email?: string;
+  website?: string;
+  description?: string;
+  logo?: string;
+  created_at?: string;
+  // Campos em camelCase para uso no frontend
+  createdAt?: string;
+}
 
-// Products table
-export const products = pgTable("products", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  price: text("price")
-});
+export interface User {
+  id: string; // UUID do Supabase
+  name: string;
+  email: string;
+  role: string;
+  sector?: string;
+  organization_id?: number;
+  password?: string; // Usado apenas para armazenamento local, nunca enviado para Supabase
+  created_at?: string;
+  updated_at?: string;
+  // Campos em camelCase para uso no frontend
+  organizationId?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
 
-// Clients table - Atualizado para usar UUID do Supabase
-export const clients = pgTable("clients", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  cpf: text("cpf"),
-  phone: text("phone"),
-  convenioId: integer("convenio_id").references(() => convenios.id),
-  birthDate: text("birth_date"),
-  contact: text("contact"),
-  email: text("email"),
-  company: text("company"),
-  createdById: text("created_by_id").references(() => users.id), // UUID do usuário que criou o cliente (Supabase)
-  organizationId: integer("organization_id").references(() => organizations.id), // ID da organização do cliente
-  createdAt: timestamp("created_at").defaultNow()
-});
+export interface Convenio {
+  id: number;
+  name: string;
+  price?: string;
+}
 
-// Banks table
-export const banks = pgTable("banks", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  price: text("price")
-});
+export interface Product {
+  id: number;
+  name: string;
+  price?: string;
+}
 
-// Proposals table - Atualizado para usar UUID do Supabase
-export const proposals = pgTable("proposals", {
-  id: serial("id").primaryKey(),
-  clientId: integer("client_id").references(() => clients.id),
-  productId: integer("product_id").references(() => products.id),
-  convenioId: integer("convenio_id").references(() => convenios.id),
-  bankId: integer("bank_id").references(() => banks.id),
-  value: text("value"),
-  comments: text("comments"),
-  status: text("status").notNull(), // 'em_negociacao', 'aceita', 'em_analise', 'recusada'
-  createdById: text("created_by_id").references(() => users.id), // UUID do usuário que criou a proposta (Supabase)
-  organizationId: integer("organization_id").references(() => organizations.id), // ID da organização da proposta
-  createdAt: timestamp("created_at").defaultNow()
-});
+export interface Client {
+  id: number;
+  name: string;
+  cpf?: string;
+  phone?: string;
+  convenio_id?: number;
+  birth_date?: string;
+  contact?: string;
+  email?: string;
+  company?: string;
+  created_by_id?: string; // UUID do usuário que criou
+  organization_id?: number;
+  created_at?: string;
+  // Campos em camelCase para uso no frontend
+  convenioId?: number;
+  birthDate?: string;
+  createdById?: string;
+  organizationId?: number;
+  createdAt?: string;
+}
 
-// Nota: A tabela Kanban foi removida conforme solicitado
+export interface Bank {
+  id: number;
+  name: string;
+  price?: string;
+}
 
-// Insert schemas
-export const insertClientSchema = createInsertSchema(clients).omit({ id: true, createdAt: true });
-export const insertProductSchema = createInsertSchema(products).omit({ id: true });
-export const insertConvenioSchema = createInsertSchema(convenios).omit({ id: true });
-export const insertBankSchema = createInsertSchema(banks).omit({ id: true });
-export const insertProposalSchema = createInsertSchema(proposals).omit({ id: true, createdAt: true });
-export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertOrganizationSchema = createInsertSchema(organizations).omit({ id: true, createdAt: true });
+export interface Proposal {
+  id: number;
+  client_id?: number;
+  product_id?: number;
+  convenio_id?: number;
+  bank_id?: number;
+  value?: string;
+  comments?: string;
+  status: string; // 'em_negociacao', 'aceita', 'em_analise', 'recusada'
+  created_by_id?: string; // UUID do usuário que criou
+  organization_id?: number;
+  created_at?: string;
+  // Campos em camelCase para uso no frontend
+  clientId?: number;
+  productId?: number;
+  convenioId?: number;
+  bankId?: number;
+  createdById?: string;
+  organizationId?: number;
+  createdAt?: string;
+}
 
-// Schemas personalizados
+// Tipos de campos de formulário
+export enum FormFieldType {
+  TEXT = 'text',
+  NUMBER = 'number',
+  EMAIL = 'email',
+  PHONE = 'phone',
+  DATE = 'date',
+  SELECT = 'select',
+  CHECKBOX = 'checkbox',
+  RADIO = 'radio',
+  TEXTAREA = 'textarea',
+  CPF = 'cpf',
+  CNPJ = 'cnpj',
+  CURRENCY = 'currency'
+}
+
+export interface FormField {
+  id: string;
+  name: string;
+  label: string;
+  type: FormFieldType;
+  required?: boolean;
+  options?: { label: string; value: string }[];
+  defaultValue?: string | number | boolean | null;
+  placeholder?: string;
+  helpText?: string;
+  validation?: {
+    minLength?: number;
+    maxLength?: number;
+    pattern?: string;
+    min?: number;
+    max?: number;
+  };
+}
+
+export interface FormTemplate {
+  id: number;
+  name: string;
+  description?: string;
+  kanban_column?: string;
+  fields?: FormField[];
+  active?: boolean;
+  created_by_id?: string; // UUID do usuário que criou
+  organization_id?: number;
+  created_at?: string;
+  updated_at?: string;
+  // Campos em camelCase para uso no frontend
+  kanbanColumn?: string;
+  createdById?: string;
+  organizationId?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface FormSubmission {
+  id: number;
+  form_template_id?: number;
+  data: any; // Dados submetidos no formulário
+  client_id?: number;
+  status?: string; // 'novo', 'processado', 'rejeitado'
+  processed_by_id?: string; // UUID do usuário que processou
+  organization_id?: number;
+  created_at?: string;
+  updated_at?: string;
+  // Campos em camelCase para uso no frontend
+  formTemplateId?: number;
+  clientId?: number;
+  processedById?: string;
+  organizationId?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+// Schemas Zod para validação
+
 export const userPasswordSchema = z.object({
   password: z.string().min(6, "A senha deve ter pelo menos 6 caracteres"),
 });
 
+export const insertClientSchema = z.object({
+  name: z.string().min(1, "Nome é obrigatório"),
+  cpf: z.string().optional(),
+  phone: z.string().optional(),
+  convenioId: z.number().optional(),
+  birthDate: z.string().optional(),
+  contact: z.string().optional(),
+  email: z.string().email("Email inválido").optional(),
+  company: z.string().optional(),
+  createdById: z.string().optional(),
+  organizationId: z.number().optional(),
+});
+
+export const insertProductSchema = z.object({
+  name: z.string().min(1, "Nome é obrigatório"),
+  price: z.string().optional(),
+});
+
+export const insertConvenioSchema = z.object({
+  name: z.string().min(1, "Nome é obrigatório"),
+  price: z.string().optional(),
+});
+
+export const insertBankSchema = z.object({
+  name: z.string().min(1, "Nome é obrigatório"),
+  price: z.string().optional(),
+});
+
+export const insertProposalSchema = z.object({
+  clientId: z.number().optional(),
+  productId: z.number().optional(),
+  convenioId: z.number().optional(),
+  bankId: z.number().optional(),
+  value: z.string().optional(),
+  comments: z.string().optional(),
+  status: z.string().min(1, "Status é obrigatório"),
+  createdById: z.string().optional(),
+  organizationId: z.number().optional(),
+});
+
+export const insertUserSchema = z.object({
+  name: z.string().min(1, "Nome é obrigatório"),
+  email: z.string().email("Email inválido").min(1, "Email é obrigatório"),
+  role: z.string().default(UserRole.AGENT),
+  sector: z.string().optional(),
+  organizationId: z.number().optional(),
+});
+
 export const registerUserSchema = insertUserSchema.merge(userPasswordSchema);
 
-// Select types
-export type Client = typeof clients.$inferSelect;
-export type Product = typeof products.$inferSelect;
-export type Convenio = typeof convenios.$inferSelect;
-export type Bank = typeof banks.$inferSelect;
-export type Proposal = typeof proposals.$inferSelect;
-export type User = typeof users.$inferSelect;
-export type Organization = typeof organizations.$inferSelect;
+export const insertOrganizationSchema = z.object({
+  name: z.string().min(1, "Nome é obrigatório"),
+  address: z.string().optional(),
+  phone: z.string().optional(),
+  cnpj: z.string().optional(),
+  email: z.string().email("Email inválido").optional(),
+  website: z.string().optional(),
+  description: z.string().optional(),
+  logo: z.string().optional(),
+});
 
-// Insert types
+export const insertFormTemplateSchema = z.object({
+  name: z.string().min(1, "Nome é obrigatório"),
+  description: z.string().optional(),
+  kanbanColumn: z.string().default("lead"),
+  fields: z.array(z.object({
+    id: z.string(),
+    name: z.string(),
+    label: z.string(),
+    type: z.nativeEnum(FormFieldType),
+    required: z.boolean().default(false),
+    options: z.array(z.object({
+      label: z.string(),
+      value: z.string()
+    })).optional(),
+    defaultValue: z.union([z.string(), z.number(), z.boolean(), z.null()]).optional(),
+    placeholder: z.string().optional(),
+    helpText: z.string().optional(),
+    validation: z.object({
+      minLength: z.number().optional(),
+      maxLength: z.number().optional(),
+      pattern: z.string().optional(),
+      min: z.number().optional(),
+      max: z.number().optional()
+    }).optional()
+  })).optional(),
+  active: z.boolean().default(true),
+  createdById: z.string().optional(),
+  organizationId: z.number().optional(),
+});
+
+export const insertFormSubmissionSchema = z.object({
+  formTemplateId: z.number().optional(),
+  data: z.any(),
+  status: z.string().default("novo"),
+  organizationId: z.number().optional(),
+});
+
+// Define tipos para inserção
 export type InsertClient = z.infer<typeof insertClientSchema>;
 export type InsertProduct = z.infer<typeof insertProductSchema>;
 export type InsertConvenio = z.infer<typeof insertConvenioSchema>;
@@ -132,8 +295,10 @@ export type InsertProposal = z.infer<typeof insertProposalSchema>;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type RegisterUser = z.infer<typeof registerUserSchema>;
 export type InsertOrganization = z.infer<typeof insertOrganizationSchema>;
+export type InsertFormTemplate = z.infer<typeof insertFormTemplateSchema>;
+export type InsertFormSubmission = z.infer<typeof insertFormSubmissionSchema>;
 
-// Extended types
+// Tipos estendidos para uso na aplicação
 export type ClientWithStats = Client & {
   proposalCount?: number;
   totalValue?: string | number | null;
@@ -158,89 +323,3 @@ export type AuthData = {
   token: string;
   user: UserWithOrganization;
 };
-
-// Tipos de campos de formulário
-export enum FormFieldType {
-  TEXT = 'text',
-  NUMBER = 'number',
-  EMAIL = 'email',
-  PHONE = 'phone',
-  DATE = 'date',
-  SELECT = 'select',
-  CHECKBOX = 'checkbox',
-  RADIO = 'radio',
-  TEXTAREA = 'textarea',
-  CPF = 'cpf',
-  CNPJ = 'cnpj',
-  CURRENCY = 'currency'
-}
-
-// Tabela de modelos de formulários - Atualizado para usar UUID do Supabase
-export const formTemplates = pgTable("form_templates", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  description: text("description"),
-  kanbanColumn: text("kanban_column").notNull().default("lead"), // Coluna do kanban onde novos leads serão colocados
-  fields: json("fields").default("[]"), // Array de campos do formulário
-  active: boolean("active").notNull().default(true),
-  createdById: text("created_by_id").references(() => users.id), // UUID do usuário que criou o modelo (Supabase)
-  organizationId: integer("organization_id").references(() => organizations.id),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow()
-});
-
-// Tabela de submissões de formulários - Atualizado para usar UUID do Supabase
-export const formSubmissions = pgTable("form_submissions", {
-  id: serial("id").primaryKey(),
-  formTemplateId: integer("form_template_id").references(() => formTemplates.id),
-  data: jsonb("data").notNull(), // Dados submetidos no formulário
-  clientId: integer("client_id").references(() => clients.id), // Cliente criado a partir desta submissão
-  status: text("status").notNull().default("novo"), // 'novo', 'processado', 'rejeitado'
-  processedById: text("processed_by_id").references(() => users.id), // UUID do usuário que processou a submissão (Supabase)
-  organizationId: integer("organization_id").references(() => organizations.id),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow()
-});
-
-// Schema para inserção de formulários
-export const insertFormTemplateSchema = createInsertSchema(formTemplates).omit({ 
-  id: true, 
-  createdAt: true, 
-  updatedAt: true 
-}).extend({
-  fields: z.array(z.object({
-    id: z.string(),
-    name: z.string(),
-    label: z.string(),
-    type: z.nativeEnum(FormFieldType),
-    required: z.boolean().default(false),
-    options: z.array(z.object({
-      label: z.string(),
-      value: z.string()
-    })).optional(),
-    defaultValue: z.union([z.string(), z.number(), z.boolean(), z.null()]).optional(),
-    placeholder: z.string().optional(),
-    helpText: z.string().optional(),
-    validation: z.object({
-      minLength: z.number().optional(),
-      maxLength: z.number().optional(),
-      pattern: z.string().optional(),
-      min: z.number().optional(),
-      max: z.number().optional()
-    }).optional()
-  }))
-});
-
-export const insertFormSubmissionSchema = createInsertSchema(formSubmissions).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-  clientId: true,
-  processedById: true
-});
-
-// Tipos para formulários
-export type FormTemplate = typeof formTemplates.$inferSelect;
-export type FormSubmission = typeof formSubmissions.$inferSelect;
-export type InsertFormTemplate = z.infer<typeof insertFormTemplateSchema>;
-export type InsertFormSubmission = z.infer<typeof insertFormSubmissionSchema>;
