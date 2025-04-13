@@ -167,6 +167,7 @@ export interface FormSubmission {
   id: number;
   form_template_id?: number;
   data: any; // Dados submetidos no formulário
+  form_data?: Record<string, any>; // Formato alternativo de dados do formulário (compatibilidade) 
   client_id?: number;
   status?: string; // 'novo', 'processado', 'rejeitado'
   processed_by_id?: string; // UUID do usuário que processou
@@ -175,6 +176,7 @@ export interface FormSubmission {
   updated_at?: string;
   // Campos em camelCase para uso no frontend
   formTemplateId?: number;
+  formData?: Record<string, any>; // Formato camelCase para dados do formulário
   clientId?: number;
   processedById?: string;
   organizationId?: number;
@@ -234,6 +236,7 @@ export const insertUserSchema = z.object({
   role: z.string().default(UserRole.AGENT),
   sector: z.string().optional(),
   organizationId: z.number().optional(),
+  password: z.string().optional(), // Campo opcional, mas importante para algumas operações
 });
 
 export const registerUserSchema = insertUserSchema.merge(userPasswordSchema);

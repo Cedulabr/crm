@@ -104,4 +104,5 @@ export interface IStorage {
   getFormSubmissionsByOrganization(organizationId: number): Promise<FormSubmission[]>;
 }
 
-export { supabaseStorage as storage } from './services/supabase-storage';
+// Exportar a instância do storage Supabase
+export const storage = supabaseStorage;

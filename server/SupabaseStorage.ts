@@ -119,7 +119,8 @@ export class SupabaseStorage implements IStorage {
     const converted: Record<string, any> = {};
     
     for (const key in obj) {
-      if (obj.hasOwnProperty(key) && key !== 'password') { // Nunca incluir senha no resultado
+      // Nunca incluir senha no resultado
+      if (obj.hasOwnProperty(key) && key !== 'password') {
         // Converter camelCase para snake_case
         const snakeKey = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
         
@@ -624,18 +625,23 @@ export class SupabaseStorage implements IStorage {
   }
 
   async createUser(user: RegisterUser): Promise<User> {
-    // Hash a senha antes de armazenar
-    const hashedUser = {
+    // Verificar se a senha foi fornecida
+    if (!user.password) {
+      throw new Error('Senha é obrigatória para criar usuário');
+    }
+    
+    // Dados a serem armazenados no perfil (sem senha)
+    const profileData = { 
       ...user,
-      password: await hashPassword(user.password)
+      // Não incluir senha no perfil
     };
     
-    const snakeUser = this.camelToSnake(hashedUser);
+    const snakeUser = this.camelToSnake(profileData);
     
     // Primeiro criar o usuário no Auth
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: user.email,
-      password: user.password,
+      password: user.password, // Senha em texto plano para o Auth
       options: {
         data: {
           name: user.name,
@@ -676,14 +682,15 @@ export class SupabaseStorage implements IStorage {
   }
 
   async updateUser(id: string | number, userData: Partial<InsertUser>): Promise<User | undefined> {
-    const updateData = { ...userData };
+    // Criar uma cópia dos dados para atualizar o perfil (sem senha)
+    const profileData = { ...userData };
     
-    // Se houver senha, realizar hash
-    if (updateData.password) {
-      updateData.password = await hashPassword(updateData.password);
+    // Remover a senha do perfil - senha só deve ser atualizada no Auth
+    if (profileData.password) {
+      delete profileData.password;
     }
     
-    const snakeUserData = this.camelToSnake(updateData);
+    const snakeUserData = this.camelToSnake(profileData);
     
     const { data, error } = await supabase
       .from('users')
@@ -1057,21 +1064,21 @@ export class SupabaseStorage implements IStorage {
       return undefined;
     }
     
-    // Criar cliente a partir dos dados da submissão
-    const formData = submission.formData || {};
+    // Obter dados do formulário - podem estar em data ou formData, dependendo da implementação
+    const formData = submission.formData || submission.data || {};
     
     try {
       // Criar cliente com os dados do formulário
       const newClient: InsertClient = {
         name: formData.name || '',
-        email: formData.email || '',
-        phone: formData.phone || '',
-        cpf: formData.cpf || '',
-        company: formData.company,
-        contact: formData.contact,
-        birthDate: formData.birthDate,
+        email: formData.email || undefined,
+        phone: formData.phone || undefined,
+        cpf: formData.cpf || undefined,
+        company: formData.company || undefined,
+        contact: formData.contact || undefined,
+        birthDate: formData.birthDate || undefined,
         convenioId: formData.convenioId ? Number(formData.convenioId) : undefined,
-        organizationId: submission.organizationId,
+        organizationId: submission.organizationId || 1,
         createdById: processedById.toString()
       };
       
