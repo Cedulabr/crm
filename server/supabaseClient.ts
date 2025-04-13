@@ -9,7 +9,10 @@ if (!supabaseUrl || !supabaseKey) {
   console.error('⚠️ ERROR: Missing Supabase configuration');
   console.error('SUPABASE_URL:', supabaseUrl ? 'Configured' : 'NOT CONFIGURED');
   console.error('SUPABASE_KEY:', supabaseKey ? 'Configured' : 'NOT CONFIGURED');
-  throw new Error('Supabase configuration required. Please set SUPABASE_URL and SUPABASE_KEY environment variables.');
+  console.error('Please configure SUPABASE_URL and SUPABASE_KEY in deployment secrets');
+  // Use fallback values in production to prevent crash
+  supabaseUrl = supabaseUrl || 'https://example.supabase.co';
+  supabaseKey = supabaseKey || 'fallback-key';
 }
 
 // Cria o cliente Supabase mesmo com credenciais vazias para evitar erros de inicialização
