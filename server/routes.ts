@@ -23,7 +23,7 @@ import supabase, { isSupabaseConfigured } from './supabaseClient';
 import { storage } from "./storage";
 import { check_env } from "./check-env";
 import { authMiddleware, requireAuth, checkRole } from "./middleware/auth";
-import { openAIService } from "./services/openai-service";
+import { openaiService } from "./services/openai-service";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Rota de status para verificar a configuração do Supabase
@@ -1806,7 +1806,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Processar a consulta usando OpenAI
-      const queryStructure = await openAIService.processNaturalLanguageQuery(query);
+      const queryStructure = await openaiService.processNaturalLanguageQuery(query);
       
       // Buscar dados baseados na estrutura da consulta
       let results = [];
@@ -1849,7 +1849,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           
           // Ordenar resultados com ajuda da OpenAI para classificação de relevância
-          results = await openAIService.rankResultsBySimilarity(query, clients);
+          results = await openaiService.rankResultsBySimilarity(query, clients);
           break;
           
         case 'proposta':
@@ -1909,14 +1909,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           );
           
           // Ordenar resultados com ajuda da OpenAI para classificação de relevância
-          results = await openAIService.rankResultsBySimilarity(query, proposalsWithDetails);
+          results = await openaiService.rankResultsBySimilarity(query, proposalsWithDetails);
           break;
           
         case 'produto':
           const products = await storage.getProducts();
           
           // Aplicar filtros se necessário
-          results = await openAIService.rankResultsBySimilarity(query, products);
+          results = await openaiService.rankResultsBySimilarity(query, products);
           break;
           
         default:
@@ -1929,7 +1929,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             ...allProposals.slice(0, 10)
           ];
           
-          results = await openAIService.rankResultsBySimilarity(query, combinedResults);
+          results = await openaiService.rankResultsBySimilarity(query, combinedResults);
       }
       
       res.json({
@@ -1965,7 +1965,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Gerar sugestões de autocompletar
-      const suggestions = await openAIService.generateAutocompleteOptions(input, clients);
+      const suggestions = await openaiService.generateAutocompleteOptions(input, clients);
       
       res.json({ suggestions });
     } catch (error) {

@@ -1,199 +1,191 @@
-import OpenAI from "openai";
-import { Client } from "@shared/schema";
+import OpenAI from 'openai';
 
-// Inicializar o cliente OpenAI com a chave da API
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+// o modelo mais recente da OpenAI é "gpt-4o" que foi lançado em 13 de maio de 2024. Não mude isso a menos que explicitamente solicitado pelo usuário
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
-// Classe que gerencia a integração com a OpenAI
+/**
+ * Serviço para interação com a API da OpenAI
+ */
 export class OpenAIService {
   /**
-   * Processa uma consulta em linguagem natural e retorna uma consulta estruturada
+   * Processa uma consulta de linguagem natural para transformá-la em parâmetros de busca estruturados
    * @param query Consulta em linguagem natural
-   * @returns Objeto de consulta estruturada
+   * @returns Parâmetros estruturados para busca
    */
   async processNaturalLanguageQuery(query: string): Promise<any> {
     try {
-      // o modelo mais recente da OpenAI é "gpt-4o" que foi lançado em 13 de maio de 2024. Não modifique isso a menos que solicitado explicitamente pelo usuário
       const response = await openai.chat.completions.create({
         model: "gpt-4o",
         messages: [
           {
             role: "system",
-            content: `Você é um assistente especializado em analisar consultas em linguagem natural e 
-            convertê-las em estruturas de busca para um sistema CRM. 
+            content: `Você é um assistente especializado em extrair parâmetros de busca de consultas em linguagem natural. 
+            Analise a consulta do usuário e extraia os parâmetros relevantes para busca em um sistema CRM.
+            Os parâmetros possíveis são:
+            - entityType: O tipo de entidade a ser buscada (client, proposal, user, organization, formTemplate, formSubmission)
+            - name: Nome a ser buscado (para clientes, usuários ou organizações)
+            - email: Email a ser buscado (para clientes ou usuários)
+            - status: Status a ser filtrado (para propostas ou envios de formulário)
+            - minValue: Valor mínimo (para propostas)
+            - maxValue: Valor máximo (para propostas)
+            - productId: ID do produto (para propostas)
+            - creatorId: ID do criador (para propostas ou clientes)
+            - dateRange: Intervalo de datas (startDate e endDate para propostas ou envios)
+            - sortBy: Campo para ordenação
+            - sortOrder: Direção da ordenação (asc/desc)
+            - limit: Número de resultados a retornar
             
-            O sistema contém informações sobre clientes, propostas e produtos.
-
-            Extraia as entidades, intenções e filtros da consulta do usuário e retorne um objeto JSON
-            com os campos:
-            {
-              "entidade": "cliente" | "proposta" | "produto" | "geral",
-              "filtros": {
-                "nome": string | null,
-                "email": string | null,
-                "cpf": string | null,
-                "telefone": string | null,
-                "status": string | null,
-                "produto": string | null,
-                "valorMin": number | null,
-                "valorMax": number | null,
-                "dataInicio": string | null,
-                "dataFim": string | null
-              },
-              "ordenacao": "nome" | "data" | "valor" | null,
-              "ordem": "asc" | "desc" | null,
-              "intencao": "listar" | "buscar" | "filtrar" | null
-            }
-            
-            Exemplos:
-            - "mostrar clientes com nome Maria" → { "entidade": "cliente", "filtros": { "nome": "Maria" }, "intencao": "buscar" }
-            - "propostas acima de 5000 reais" → { "entidade": "proposta", "filtros": { "valorMin": 5000 }, "intencao": "filtrar" }
-            - "clientes cadastrados este mês" → { "entidade": "cliente", "filtros": { "dataInicio": "início do mês atual" }, "intencao": "listar" }
-            - "listar propostas do produto empréstimo" → { "entidade": "proposta", "filtros": { "produto": "empréstimo" }, "intencao": "listar" }
-            `
+            Retorne apenas os parâmetros identificados em formato JSON, sem texto adicional.`
           },
-          {
-            role: "user",
-            content: query
-          }
+          { role: "user", content: query }
         ],
-        response_format: { type: "json_object" }
+        response_format: { type: "json_object" },
       });
 
-      return JSON.parse(response.choices[0].message.content || '{}');
+      const content = response.choices[0].message.content || '{}';
+      const result = JSON.parse(content);
+      return result;
     } catch (error) {
-      console.error("Erro ao processar consulta com OpenAI:", error);
-      return {
-        entidade: "geral",
-        filtros: {},
-        ordenacao: null,
-        ordem: null,
-        intencao: "listar"
-      };
+      console.error('Erro ao processar consulta em linguagem natural:', error);
+      throw new Error('Falha ao processar consulta em linguagem natural');
     }
   }
 
   /**
-   * Gera sugestões de autocompletar com base em uma entrada parcial
-   * @param input Texto parcial do usuário
-   * @param clients Lista de clientes para contextualização
-   * @returns Lista de sugestões de autocompletar
+   * Gera sugestões de autocompletar com base em um texto parcial
+   * @param partialText Texto parcial digitado pelo usuário
+   * @param context Contexto da busca (em qual entidade está buscando)
+   * @returns Lista de sugestões para autocompletar
    */
-  async generateAutocompleteOptions(input: string, clients: Client[]): Promise<string[]> {
-    if (!input || input.length < 2) {
-      return [];
-    }
-
+  async generateAutocompleteSuggestions(partialText: string, context: string): Promise<string[]> {
     try {
-      // Preparar contexto com alguns exemplos de clientes
-      const clientContext = clients.slice(0, 5).map(c => 
-        `${c.name || ''} (${c.email || ''}, ${c.phone || ''})`
-      ).join(', ');
-
-      // o modelo mais recente da OpenAI é "gpt-4o" que foi lançado em 13 de maio de 2024. Não modifique isso a menos que solicitado explicitamente pelo usuário
       const response = await openai.chat.completions.create({
         model: "gpt-4o",
         messages: [
           {
             role: "system",
-            content: `Você é um assistente de busca para um sistema CRM.
-            
-            Contexto: O sistema possui clientes como: ${clientContext}
-            
-            Baseado na entrada parcial do usuário, forneça de 3 a 5 sugestões de buscas completas
-            que sejam relevantes em um contexto de CRM. Retorne apenas uma lista JSON de strings,
-            sem explicações adicionais.
-            
-            Exemplos de consultas úteis:
-            - "mostrar clientes com nome [nome]"
-            - "propostas acima de [valor] reais"
-            - "clientes cadastrados este mês"
-            - "listar propostas do produto [produto]"
-            - "clientes com email [domínio]"
-            - "propostas pendentes"
-            - "clientes sem proposta"
-            `
+            content: `Você é um assistente especializado em sugerir termos de autocompletar para um sistema CRM.
+            Com base no contexto e no texto parcial fornecido, sugira até 5 possíveis consultas completas que o usuário possa estar tentando formar.
+            Contexto: ${context}
+            Retorne apenas um array JSON de strings com as sugestões, sem texto adicional.`
           },
-          {
-            role: "user", 
-            content: input
-          }
+          { role: "user", content: partialText }
         ],
-        response_format: { type: "json_object" }
+        response_format: { type: "json_object" },
       });
 
-      const content = JSON.parse(response.choices[0].message.content || '[]');
-      return Array.isArray(content) ? content : 
-             (content.suggestions ? content.suggestions : []);
+      const content = response.choices[0].message.content || '{"suggestions":[]}';
+      const result = JSON.parse(content);
+      return result.suggestions || [];
     } catch (error) {
-      console.error("Erro ao gerar opções de autocompletar:", error);
+      console.error('Erro ao gerar sugestões de autocompletar:', error);
       return [];
     }
   }
 
   /**
-   * Avalia a similaridade semântica entre uma consulta e documentos
-   * @param query Consulta do usuário
-   * @param documents Lista de documentos para comparar
-   * @returns Documentos ordenados por relevância
+   * Classifica resultados com base na similaridade com a consulta original
+   * @param query Consulta original do usuário
+   * @param items Lista de itens a serem ordenados
+   * @returns Lista de itens ordenados por relevância
    */
-  async rankResultsBySimilarity(query: string, documents: any[]): Promise<any[]> {
-    if (!documents || documents.length === 0) {
-      return [];
-    }
-
+  async rankResultsBySimilarity(query: string, items: any[]): Promise<any[]> {
     try {
-      // Criar representação em texto dos documentos
-      const documentTexts = documents.map(doc => {
-        if (doc.name) { // Cliente
-          return `Cliente: ${doc.name || ''}, Email: ${doc.email || ''}, Telefone: ${doc.phone || ''}`;
-        } else if (doc.clientId) { // Proposta
-          return `Proposta: Valor ${doc.value || 0}, Status: ${doc.status || ''}, Produto: ${doc.productId || ''}`;
-        } else {
-          return JSON.stringify(doc);
-        }
-      });
-
-      // o modelo mais recente da OpenAI é "gpt-4o" que foi lançado em 13 de maio de 2024. Não modifique isso a menos que solicitado explicitamente pelo usuário
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `Você é um assistente especializado em classificar documentos por relevância.
-            
-            O usuário fornecerá uma consulta e uma lista de documentos numerados.
-            Você deve avaliar a relevância semântica de cada documento em relação à consulta
-            e retornar um array JSON com os índices dos documentos em ordem de relevância (do mais relevante para o menos).
-            
-            Retorne apenas o array JSON com os índices, sem explicações adicionais.
-            `
-          },
-          {
-            role: "user",
-            content: `Consulta: "${query}"
-            
-            Documentos:
-            ${documentTexts.map((text, idx) => `${idx}: ${text}`).join('\n')}
-            `
-          }
-        ],
-        response_format: { type: "json_object" }
-      });
-
-      const content = JSON.parse(response.choices[0].message.content || '[]');
-      const indices = Array.isArray(content) ? content : 
-                    (content.indices || content.ranking || []);
+      // Para poucas entradas, retorna sem processamento adicional
+      if (items.length <= 3) return items;
       
-      // Reordenar documentos com base nos índices retornados
-      return indices
-        .filter((idx: number) => idx >= 0 && idx < documents.length)
-        .map((idx: number) => documents[idx]);
+      // Para queries simples ou poucos itens, aplicar ordenação básica
+      if (query.length < 10 || items.length < 10) {
+        // Retornar cópia para não modificar original
+        return [...items];
+      }
+      
+      // Para conjuntos maiores, usar a OpenAI para classificar por relevância
+      const itemsJson = JSON.stringify(items.slice(0, 20)); // Limitar para evitar tokens excessivos
+      
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content: `Você é um assistente especializado em classificar resultados por relevância.
+            Analise a consulta do usuário e a lista de itens, e retorne os índices dos itens ordenados do mais relevante para o menos relevante.
+            Considere a semântica da consulta e não apenas correspondências exatas de texto.
+            Retorne apenas um array JSON de números inteiros representando os índices dos itens, sem texto adicional.`
+          },
+          { 
+            role: "user", 
+            content: `Consulta: ${query}\n\nItens: ${itemsJson}`
+          }
+        ],
+        response_format: { type: "json_object" },
+      });
+      
+      const content = response.choices[0].message.content || '{"indices":[]}';
+      const result = JSON.parse(content);
+      const indices = result.indices || [];
+      
+      // Reordenar os itens baseado nos índices retornados
+      const ranked = indices
+        .filter((index: number) => index >= 0 && index < items.length) // Filtrar índices inválidos
+        .map((index: number) => items[index]);
+      
+      // Incluir itens que não foram classificados no final
+      const notRanked = items.filter((_, i) => !indices.includes(i));
+      
+      return [...ranked, ...notRanked];
     } catch (error) {
-      console.error("Erro ao classificar resultados por similaridade:", error);
-      return documents; // Retorna os documentos originais em caso de erro
+      console.error('Erro ao classificar resultados por relevância:', error);
+      // Em caso de erro, retornar os itens sem alteração na ordem
+      return items;
+    }
+  }
+  
+  /**
+   * Gera opções de autocompletar baseado no texto parcial e contexto
+   * @param input Texto parcial digitado pelo usuário
+   * @param contextData Dados de contexto para informar as sugestões
+   * @returns Lista de sugestões para autocompletar
+   */
+  async generateAutocompleteOptions(input: string, contextData: any[]): Promise<string[]> {
+    try {
+      // Para entradas muito curtas ou vazias, retornar lista vazia
+      if (!input || input.length < 2) return [];
+      
+      // Extrair informações de contexto que possam ajudar no autocompletar
+      const contextExamples = contextData
+        .slice(0, 10)
+        .map(item => JSON.stringify(item))
+        .join('\n');
+      
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content: `Você é um assistente especializado em gerar sugestões de autocompletar para um sistema CRM.
+            Com base no texto parcial e nos exemplos de dados do sistema, sugira até 5 possíveis consultas completas que o usuário possa estar tentando formar.
+            As sugestões devem ser relevantes para um sistema de gerenciamento de clientes, propostas e vendas.
+            Exemplos de dados do sistema:
+            ${contextExamples}
+            
+            Retorne apenas um array JSON de strings com as sugestões, sem texto adicional.`
+          },
+          { role: "user", content: input }
+        ],
+        response_format: { type: "json_object" },
+      });
+      
+      const content = response.choices[0].message.content || '{"suggestions":[]}';
+      const result = JSON.parse(content);
+      return result.suggestions || [];
+    } catch (error) {
+      console.error('Erro ao gerar opções de autocompletar:', error);
+      return [];
     }
   }
 }
 
-export const openAIService = new OpenAIService();
+export const openaiService = new OpenAIService();
