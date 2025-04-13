@@ -3,8 +3,13 @@ import { createClient } from '@supabase/supabase-js';
 
 // Verifica se as variáveis de ambiente estão definidas
 // No ambiente de produção, essas variáveis devem ser configuradas nas configurações do deploy
-const supabaseUrl = process.env.SUPABASE_URL || '';
-const supabaseKey = process.env.SUPABASE_KEY || '';
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_KEY;
+
+// Mostra informações detalhadas para debug
+console.log('Configuração do Supabase:');
+console.log('SUPABASE_URL:', supabaseUrl ? 'Configurado' : 'NÃO CONFIGURADO');
+console.log('SUPABASE_KEY:', supabaseKey ? 'Configurado' : 'NÃO CONFIGURADO');
 
 if (!supabaseUrl || !supabaseKey) {
   console.warn('⚠️ AVISO: As variáveis de ambiente SUPABASE_URL e/ou SUPABASE_KEY não estão definidas');
@@ -14,7 +19,7 @@ if (!supabaseUrl || !supabaseKey) {
 
 // Cria o cliente Supabase mesmo com credenciais vazias para evitar erros de inicialização
 // As operações individuais verificarão a conectividade antes de executar
-const supabase = createClient(supabaseUrl, supabaseKey, {
+const supabase = createClient(supabaseUrl || '', supabaseKey || '', {
   auth: {
     autoRefreshToken: false,
     persistSession: false
