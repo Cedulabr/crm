@@ -42,12 +42,26 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
     }
     
     try {
+      // Verificar se o token está presente na requisição e não é um token inválido
+      if (!token || token === 'null' || token === 'undefined') {
+        console.log('Token inválido ou não fornecido');
+        return next();
+      }
+      
+      // Tentar renovar a sessão primeiro
+      try {
+        await supabase.auth.refreshSession();
+      } catch (refreshError) {
+        console.log('Erro ao renovar sessão, tentando usar o token existente');
+      }
+      
       // Verificar o token diretamente usando a API de autenticação do Supabase
       // Usar getUser com o token JWT para obter os dados do usuário
       const { data, error } = await supabase.auth.getUser(token);
       
       if (error || !data.user) {
         console.error('Erro ao verificar token:', error);
+        // Limpar cookies e headers relacionados à autenticação
         return next();
       }
       

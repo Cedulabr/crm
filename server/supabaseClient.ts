@@ -22,8 +22,8 @@ if (!supabaseUrl || !supabaseKey) {
 // As operações individuais verificarão a conectividade antes de executar
 const supabase = createClient(supabaseUrl || '', supabaseKey || '', {
   auth: {
-    autoRefreshToken: false,
-    persistSession: false
+    autoRefreshToken: true,
+    persistSession: true
   }
 });
 

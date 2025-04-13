@@ -277,7 +277,9 @@ export function SupabaseTablesStatus() {
                 ? 'Todas as tabelas e dados básicos estão configurados corretamente.'
                 : data?.status === 'missing_data'
                   ? 'As tabelas existem, mas alguns dados iniciais precisam ser criados.'
-                  : `${data?.missing_tables.length} tabelas estão faltando.`
+                  : data?.missing_tables 
+                    ? `${data.missing_tables.length} tabelas estão faltando.`
+                    : 'Erro ao verificar tabelas. Por favor, verifique a conexão com o Supabase.'
               }
             </p>
           </div>
