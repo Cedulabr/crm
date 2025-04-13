@@ -163,20 +163,53 @@ export class SupabaseStorage implements IStorage {
   }
 
   async createClient(client: InsertClient): Promise<Client> {
-    const snakeClient = this.camelToSnake(client);
-    
-    const { data, error } = await supabase
-      .from('clients')
-      .insert(snakeClient)
-      .select()
-      .single();
-    
-    if (error) {
-      console.error('Erro ao criar cliente:', error);
-      throw new Error(`Falha ao criar cliente: ${error.message}`);
+    try {
+      // Verificar se o Supabase está configurado
+      if (!isSupabaseConfigured()) {
+        throw new Error('Supabase não está configurado adequadamente');
+      }
+      
+      // Certificar-se de que os campos necessários estão presentes
+      if (!client.name) {
+        throw new Error('Nome do cliente é obrigatório');
+      }
+      
+      // Converter propriedades para formato snake_case para o Supabase
+      const snakeClient = this.camelToSnake({
+        ...client,
+        // Converter valores nulos para undefined para evitar erros de tipo
+        email: client.email || undefined,
+        phone: client.phone || undefined,
+        cpf: client.cpf || undefined,
+        birthDate: client.birthDate || undefined,
+        contact: client.contact || undefined,
+        company: client.company || undefined
+      });
+      
+      console.log('Criando cliente no Supabase:', snakeClient);
+      
+      // Inserir no Supabase e retornar o cliente criado
+      const { data, error } = await supabase
+        .from('clients')
+        .insert(snakeClient)
+        .select('*')
+        .single();
+      
+      if (error) {
+        console.error('Erro ao criar cliente:', error);
+        throw new Error(`Falha ao criar cliente: ${error.message}`);
+      }
+      
+      if (!data) {
+        throw new Error('Cliente criado, mas não foi possível recuperar os dados');
+      }
+      
+      // Converter de volta para camelCase e retornar
+      return this.snakeToCamel(data);
+    } catch (error) {
+      console.error('Erro na criação de cliente:', error);
+      throw error;
     }
-    
-    return this.snakeToCamel(data);
   }
 
   async updateClient(id: number, client: Partial<InsertClient>): Promise<Client | undefined> {

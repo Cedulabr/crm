@@ -7,6 +7,26 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
+import { supabase } from './supabase';
+
+// Função para obter o token JWT mais atualizado
+async function getAuthToken(): Promise<string> {
+  try {
+    // Tenta obter a sessão ativa do Supabase primeiro (mais confiável)
+    const { data } = await supabase.auth.getSession();
+    if (data?.session?.access_token) {
+      // Atualiza o token no localStorage quando obtido da sessão
+      localStorage.setItem("token", data.session.access_token);
+      return data.session.access_token;
+    }
+  } catch (error) {
+    console.warn("Erro ao obter sessão do Supabase:", error);
+  }
+  
+  // Fallback para o token armazenado no localStorage
+  return localStorage.getItem("token") || "";
+}
+
 export async function apiRequest(
   method: string,
   url: string,
@@ -14,7 +34,7 @@ export async function apiRequest(
   data?: any
 ): Promise<Response> {
   // Adiciona o token de autenticação ao cabeçalho se disponível
-  const token = localStorage.getItem("token");
+  const token = await getAuthToken();
   const headers = new Headers(options.headers || {});
   
   if (token) {
@@ -50,7 +70,7 @@ export const getQueryFn: <T>(options: {
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
     // Adiciona o token de autenticação ao cabeçalho se disponível
-    const token = localStorage.getItem("token");
+    const token = await getAuthToken();
     const headers: HeadersInit = {};
     
     if (token) {

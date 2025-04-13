@@ -85,10 +85,10 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
           email: user.email || '',
           role: user.user_metadata?.role || 'agent',
           name: user.user_metadata?.name || user.email || '',
-          sector: user.user_metadata?.sector || null,
+          sector: user.user_metadata?.sector || undefined,
           createdAt: null, 
           organizationId: parseInt(user.user_metadata?.organization_id) || 1,
-          password: null,
+          password: '',
           updatedAt: null
         };
       } else {
@@ -100,10 +100,10 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
           email: userProfile.email || '',
           role: userProfile.role || 'agent',
           name: userProfile.name || '',
-          sector: userProfile.sector || null,
+          sector: userProfile.sector || undefined,
           createdAt: userProfile.created_at, 
           organizationId: userProfile.organization_id || 1,
-          password: null, // Nunca incluir senha
+          password: '', // Nunca incluir senha verdadeira
           updatedAt: userProfile.updated_at
         };
       }
