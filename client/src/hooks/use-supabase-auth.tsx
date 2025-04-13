@@ -5,7 +5,8 @@ import {
   loginWithEmailPassword,
   registerWithEmailPassword,
   logout as supabaseLogout,
-  getCurrentUser
+  getCurrentUser,
+  syncAuthToken
 } from "../lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 
@@ -31,6 +32,9 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
     async function loadUserSession() {
       setIsLoading(true);
       try {
+        // Tentar sincronizar tokens primeiro para garantir consistência
+        await syncAuthToken();
+        
         // Verificar se há uma sessão ativa
         const { data, error } = await supabase.auth.getSession();
         
@@ -44,6 +48,11 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
         if (data.session) {
           const currentUser = await getCurrentUser();
           setUser(currentUser);
+          
+          // Garantir que o token esteja no localStorage
+          if (data.session.access_token) {
+            localStorage.setItem("token", data.session.access_token);
+          }
         }
       } catch (error) {
         console.error('Erro ao carregar usuário:', error);
@@ -62,8 +71,17 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
     // Configurar listener para mudanças de autenticação
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
+        console.log('Auth state changed:', event);
         setSession(newSession);
         setUser(newSession?.user || null);
+        
+        // Atualizar token no localStorage quando a sessão mudar
+        if (newSession?.access_token) {
+          localStorage.setItem("token", newSession.access_token);
+        } else if (event === 'SIGNED_OUT') {
+          localStorage.removeItem("token");
+          localStorage.removeItem("user");
+        }
       }
     );
 

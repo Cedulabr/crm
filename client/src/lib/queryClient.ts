@@ -69,25 +69,30 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    // Adiciona o token de autenticação ao cabeçalho se disponível
-    const token = await getAuthToken();
-    const headers: HeadersInit = {};
+    try {
+      // Adiciona o token de autenticação ao cabeçalho se disponível
+      const token = await getAuthToken();
+      const headers: HeadersInit = {};
+      
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
     
-    if (token) {
-      headers["Authorization"] = `Bearer ${token}`;
-    }
-    
-    const res = await fetch(queryKey[0] as string, {
-      headers,
-      credentials: "include",
-    });
+      const res = await fetch(queryKey[0] as string, {
+        headers,
+        credentials: "include",
+      });
 
-    if (unauthorizedBehavior === "returnNull" && res.status === 401) {
-      return null;
-    }
+      if (unauthorizedBehavior === "returnNull" && res.status === 401) {
+        return null;
+      }
 
-    await throwIfResNotOk(res);
-    return await res.json();
+      await throwIfResNotOk(res);
+      return await res.json();
+    } catch (error) {
+      console.error("Erro na requisição:", error);
+      throw error;
+    }
   };
 
 export const queryClient = new QueryClient({
