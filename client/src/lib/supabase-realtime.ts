@@ -26,11 +26,14 @@ export function subscribeToTable(
   if (subscriptionCache[cacheKey]) {
     // Adicionar mais um callback à inscrição existente
     const existingChannel = subscriptionCache[cacheKey];
-    const originalCallback = existingChannel.subscription?.callbacks.broadcast || (() => {});
     
-    // Substituir o callback existente para chamar ambos os callbacks
-    existingChannel.on('broadcast', { event: '*' }, (payload) => {
-      originalCallback(payload);
+    // Substituir o callback existente para chamar o novo callback
+    existingChannel.on('postgres_changes', { 
+      event: '*', 
+      schema: 'public',
+      table: tableName,
+      filter: filter
+    }, (payload) => {
       callback(payload);
     });
     

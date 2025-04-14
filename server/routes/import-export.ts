@@ -1,11 +1,12 @@
 import { Router, Request, Response } from 'express';
 import { storage } from '../storage';
-import { authenticateUser } from '../middleware/auth';
+import { requireAuth, checkRole } from '../middleware/auth';
+import { UserRole } from '@shared/schema';
 
 const router = Router();
 
 // Rota para importar clientes
-router.post('/clients/import', authenticateUser, async (req: Request, res: Response) => {
+router.post('/clients/import', requireAuth, checkRole([UserRole.SUPERADMIN, UserRole.MANAGER]), async (req: Request, res: Response) => {
   try {
     const clients = req.body;
     
@@ -42,7 +43,7 @@ router.post('/clients/import', authenticateUser, async (req: Request, res: Respo
 });
 
 // Rota para importar propostas
-router.post('/proposals/import', authenticateUser, async (req: Request, res: Response) => {
+router.post('/proposals/import', requireAuth, checkRole([UserRole.SUPERADMIN, UserRole.MANAGER]), async (req: Request, res: Response) => {
   try {
     const proposals = req.body;
     

@@ -1985,6 +1985,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
     await checkSupabaseTables(req, res);
   });
 
+  // Adicionar rotas de importação/exportação
+  app.use('/api', importExportRoutes);
+
   const httpServer = createServer(app);
+  
+  // Configurar WebSocket para comunicação em tempo real
+  const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
+  
+  wss.on('connection', (ws) => {
+    console.log('Nova conexão WebSocket estabelecida');
+    
+    // Enviar uma mensagem inicial para confirmar conexão
+    ws.send(JSON.stringify({
+      type: 'connection',
+      message: 'Conexão WebSocket estabelecida com sucesso',
+      timestamp: new Date().toISOString()
+    }));
+    
+    // Receber mensagens do cliente
+    ws.on('message', (message) => {
+      try {
+        const data = JSON.parse(message.toString());
+        console.log('Mensagem WebSocket recebida:', data);
+        
+        // Processar mensagem com base no tipo
+        if (data.type === 'subscribe') {
+          // Cliente solicitando inscrição em atualizações de uma tabela
+          const { table, filter } = data;
+          console.log(`Cliente solicitou inscrição na tabela ${table}`);
+          
+          // Responder com confirmação
+          ws.send(JSON.stringify({
+            type: 'subscribed',
+            table,
+            filter,
+            timestamp: new Date().toISOString()
+          }));
+        }
+      } catch (error) {
+        console.error('Erro ao processar mensagem WebSocket:', error);
+      }
+    });
+    
+    // Verificar conexão a cada 30 segundos
+    const interval = setInterval(() => {
+      if (ws.readyState === ws.OPEN) {
+        ws.send(JSON.stringify({ type: 'ping', timestamp: new Date().toISOString() }));
+      } else {
+        clearInterval(interval);
+      }
+    }, 30000);
+    
+    // Limpar ao fechar
+    ws.on('close', () => {
+      console.log('Conexão WebSocket fechada');
+      clearInterval(interval);
+    });
+  });
+  
   return httpServer;
 }
