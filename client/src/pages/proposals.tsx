@@ -6,6 +6,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import ProposalForm from "@/components/proposals/proposal-form";
 import ProposalCard from "@/components/proposals/proposal-card";
 import { type ProposalWithDetails } from "@shared/schema";
@@ -18,6 +19,8 @@ export default function Proposals() {
   const [productFilter, setProductFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [valueFilter, setValueFilter] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 9; // 3x3 grid layout
   const { toast } = useToast();
   const [location] = useLocation();
 
@@ -46,7 +49,7 @@ export default function Proposals() {
   // Delete proposal mutation
   const deleteProposalMutation = useMutation({
     mutationFn: async (id: number) => {
-      return apiRequest(`/api/proposals/${id}`, { method: 'DELETE' });
+      return apiRequest('DELETE', `/api/proposals/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/proposals-with-details'] });
@@ -115,13 +118,21 @@ export default function Proposals() {
   const isRecentFilter = location.includes("filter=recent");
   
   // If 'recent' filter is active, sort by creation date
-  const sortedProposals = isRecentFilter && filteredProposals 
+  const sortedProposalsAll = isRecentFilter && filteredProposals 
     ? [...filteredProposals].sort((a, b) => {
         const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
         const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
         return dateB - dateA;
       })
     : filteredProposals;
+    
+  // Calcular o número total de páginas
+  const totalPages = sortedProposalsAll ? Math.ceil(sortedProposalsAll.length / itemsPerPage) : 0;
+  
+  // Separar as propostas para a página atual
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const sortedProposals = sortedProposalsAll ? sortedProposalsAll.slice(indexOfFirstItem, indexOfLastItem) : [];
 
   return (
     <section>
@@ -203,20 +214,46 @@ export default function Proposals() {
         </div>
       )}
       
-      {/* Pagination (simplified) */}
+      {/* Pagination */}
       {sortedProposals && sortedProposals.length > 0 && (
         <div className="mt-6 flex justify-center">
-          <div className="flex space-x-1">
-            <Button variant="outline" size="icon" className="w-10 h-10" disabled>
-              <span className="material-icons text-sm">chevron_left</span>
-            </Button>
-            <Button variant="outline" size="icon" className="w-10 h-10 bg-primary-dark text-white">1</Button>
-            <Button variant="outline" size="icon" className="w-10 h-10 text-neutral-500">2</Button>
-            <Button variant="outline" size="icon" className="w-10 h-10 text-neutral-500">3</Button>
-            <Button variant="outline" size="icon" className="w-10 h-10">
-              <span className="material-icons text-sm">chevron_right</span>
-            </Button>
-          </div>
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious 
+                  onClick={() => {
+                    // Implementar a lógica de paginação correta
+                    const prevPage = Math.max(1, currentPage - 1);
+                    setCurrentPage(prevPage);
+                  }}
+                  className={currentPage === 1 ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
+                />
+              </PaginationItem>
+              
+              {[...Array(totalPages)].map((_, i) => (
+                <PaginationItem key={i + 1}>
+                  <PaginationLink
+                    isActive={currentPage === i + 1}
+                    onClick={() => setCurrentPage(i + 1)}
+                    className="cursor-pointer"
+                  >
+                    {i + 1}
+                  </PaginationLink>
+                </PaginationItem>
+              ))}
+              
+              <PaginationItem>
+                <PaginationNext 
+                  onClick={() => {
+                    // Implementar a lógica de paginação correta
+                    const nextPage = Math.min(totalPages, currentPage + 1);
+                    setCurrentPage(nextPage);
+                  }}
+                  className={currentPage === totalPages ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
         </div>
       )}
 
