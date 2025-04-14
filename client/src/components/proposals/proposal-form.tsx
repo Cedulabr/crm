@@ -6,7 +6,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
 import { z } from "zod";
 import { insertProposalSchema, type ProposalWithDetails } from "@shared/schema";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -25,6 +25,7 @@ const proposalFormSchema = insertProposalSchema
     value: z.string().min(1, { message: "Valor é obrigatório" }),
     comments: z.string().optional(),
     status: z.string(),
+    webhookUrl: z.string().optional(),
   });
 
 type ProposalFormData = z.infer<typeof proposalFormSchema>;
@@ -71,6 +72,7 @@ export default function ProposalForm({ proposal, onClose }: ProposalFormProps) {
       : "",
     comments: proposal?.comments || "",
     status: proposal?.status || "lead",
+    webhookUrl: proposal?.webhookUrl || "",
   };
 
   // Initialize form
@@ -95,7 +97,8 @@ export default function ProposalForm({ proposal, onClose }: ProposalFormProps) {
         bankId: data.bankId ? parseInt(data.bankId) : undefined,
         value: rawValue,
         comments: data.comments,
-        status: data.status
+        status: data.status,
+        webhookUrl: data.webhookUrl
       };
       return apiRequest('POST', '/api/proposals', formattedData);
     },
@@ -137,7 +140,8 @@ export default function ProposalForm({ proposal, onClose }: ProposalFormProps) {
         bankId: data.formData.bankId ? parseInt(data.formData.bankId) : undefined,
         value: rawValue,
         comments: data.formData.comments,
-        status: data.formData.status
+        status: data.formData.status,
+        webhookUrl: data.formData.webhookUrl
       };
       return apiRequest('PUT', `/api/proposals/${data.id}`, formattedData);
     },
@@ -456,6 +460,26 @@ export default function ProposalForm({ proposal, onClose }: ProposalFormProps) {
                   {...field}
                 />
               </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="webhookUrl"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>URL de Webhook (Automações)</FormLabel>
+              <FormControl>
+                <Input 
+                  placeholder="https://exemplo.com/webhook" 
+                  {...field} 
+                />
+              </FormControl>
+              <FormDescription>
+                URL para integração com sistemas externos via webhook.
+              </FormDescription>
               <FormMessage />
             </FormItem>
           )}
