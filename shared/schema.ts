@@ -155,12 +155,14 @@ export interface FormTemplate {
   kanban_column?: string;
   fields?: FormField[];
   active?: boolean;
+  webhook_url?: string; // URL para webhook de automação
   created_by_id?: string; // UUID do usuário que criou
   organization_id?: number;
   created_at?: string;
   updated_at?: string;
   // Campos em camelCase para uso no frontend
   kanbanColumn?: string;
+  webhookUrl?: string; // Campo em camelCase para webhook
   createdById?: string;
   organizationId?: number;
   createdAt?: string;
@@ -174,6 +176,7 @@ export interface FormSubmission {
   form_data?: Record<string, any>; // Formato alternativo de dados do formulário (compatibilidade) 
   client_id?: number;
   status?: string; // 'novo', 'processado', 'rejeitado'
+  webhook_url?: string; // URL para webhook de automação
   processed_by_id?: string; // UUID do usuário que processou
   organization_id?: number;
   created_at?: string;
@@ -182,6 +185,7 @@ export interface FormSubmission {
   formTemplateId?: number;
   formData?: Record<string, any>; // Formato camelCase para dados do formulário
   clientId?: number;
+  webhookUrl?: string; // Campo em camelCase para webhook
   processedById?: string;
   organizationId?: number;
   createdAt?: string;
@@ -203,6 +207,7 @@ export const insertClientSchema = z.object({
   contact: z.string().optional(),
   email: z.string().email("Email inválido").optional(),
   company: z.string().optional(),
+  webhookUrl: z.string().url("URL inválida").optional(),
   createdById: z.string().optional(),
   organizationId: z.number().optional(),
 });
@@ -230,6 +235,7 @@ export const insertProposalSchema = z.object({
   value: z.string().optional(),
   comments: z.string().optional(),
   status: z.string().min(1, "Status é obrigatório"),
+  webhookUrl: z.string().url("URL inválida").optional(),
   createdById: z.string().optional(),
   organizationId: z.number().optional(),
 });
@@ -282,6 +288,7 @@ export const insertFormTemplateSchema = z.object({
     }).optional()
   })).optional(),
   active: z.boolean().default(true),
+  webhookUrl: z.string().url("URL inválida").optional(),
   createdById: z.string().optional(),
   organizationId: z.number().optional(),
 });
@@ -290,6 +297,7 @@ export const insertFormSubmissionSchema = z.object({
   formTemplateId: z.number().optional(),
   data: z.any(),
   status: z.string().default("novo"),
+  webhookUrl: z.string().url("URL inválida").optional(),
   organizationId: z.number().optional(),
 });
 
