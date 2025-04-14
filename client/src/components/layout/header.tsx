@@ -12,7 +12,8 @@ import {
   DropdownMenuSeparator, 
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
-import { LogOut, Settings, User } from "lucide-react";
+import { LogOut, Settings, User, Database, RefreshCw } from "lucide-react";
+import { SyncStatusIndicator } from "@/components/data-sync/SyncStatusIndicator";
 import { toast } from "@/hooks/use-toast";
 import { SmartSearch } from "@/components/smart-search/smart-search";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
@@ -125,6 +126,13 @@ export default function Header({ onMobileMenuToggle }: HeaderProps) {
         </div>
         
         <div className="flex items-center space-x-4">
+          {/* Indicadores de status de sincronização */}
+          <div className="hidden md:flex items-center gap-3 px-3 py-1 rounded-full border border-gray-200 bg-gray-50">
+            <SyncStatusIndicator table="clients" showRefresh={false} />
+            <SyncStatusIndicator table="proposals" showRefresh={false} />
+            <SyncStatusIndicator table="organizations" showRefresh={false} />
+          </div>
+          
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -139,6 +147,23 @@ export default function Header({ onMobileMenuToggle }: HeaderProps) {
               <DropdownMenuItem>
                 <User className="mr-2 h-4 w-4" />
                 <span>Meu perfil</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => {
+                // Fechar o dropdown
+                const closeButton = document.querySelector('[data-radix-dropdown-menu-content-close-trigger]');
+                if (closeButton instanceof HTMLElement) {
+                  closeButton.click();
+                }
+                
+                // Abrir o modal de sincronização
+                const syncButton = document.getElementById('sync-dialog-trigger');
+                if (syncButton instanceof HTMLElement) {
+                  syncButton.click();
+                }
+              }}>
+                <Database className="mr-2 h-4 w-4" />
+                <span>Sincronização</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleLogout}>
