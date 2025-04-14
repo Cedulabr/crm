@@ -70,12 +70,14 @@ export interface Client {
   contact?: string;
   email?: string;
   company?: string;
+  webhook_url?: string; // URL para webhook de automação
   created_by_id?: string; // UUID do usuário que criou
   organization_id?: number;
   created_at?: string;
   // Campos em camelCase para uso no frontend
   convenioId?: number;
   birthDate?: string;
+  webhookUrl?: string; // Campo em camelCase para webhook
   createdById?: string;
   organizationId?: number;
   createdAt?: string;
@@ -96,6 +98,7 @@ export interface Proposal {
   value?: string;
   comments?: string;
   status: string; // 'em_negociacao', 'aceita', 'em_analise', 'recusada'
+  webhook_url?: string; // URL para webhook de automação
   created_by_id?: string; // UUID do usuário que criou
   organization_id?: number;
   created_at?: string;
@@ -104,6 +107,7 @@ export interface Proposal {
   productId?: number;
   convenioId?: number;
   bankId?: number;
+  webhookUrl?: string; // Campo em camelCase para webhook
   createdById?: string;
   organizationId?: number;
   createdAt?: string;

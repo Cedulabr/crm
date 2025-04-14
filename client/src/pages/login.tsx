@@ -28,15 +28,9 @@ export default function LoginPage() {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const [isLoggingIn, setIsLoggingIn] = useState(false);
-  const [isTestingConnection, setIsTestingConnection] = useState(false);
   const { toast } = useToast();
   const { login, user } = useSupabaseAuth();
   const { fetchProfile, profile } = useSupabaseProfile();
-  const [connectionStatus, setConnectionStatus] = useState<{
-    tested: boolean;
-    success: boolean;
-    message?: string;
-  }>({ tested: false, success: false });
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -88,48 +82,7 @@ export default function LoginPage() {
     }
   }
 
-  // Função para testar a conexão com o Supabase
-  const testConnection = async () => {
-    try {
-      setIsTestingConnection(true);
-      // Importando dinamicamente para evitar problemas de carregamento
-      const { testSupabaseConnection } = await import('../lib/test-supabase');
-      const result = await testSupabaseConnection();
-      
-      setConnectionStatus({
-        tested: true,
-        success: result.success,
-        message: result.message
-      });
-      
-      if (result.success) {
-        toast({
-          title: "Conexão bem-sucedida",
-          description: "A conexão com o Supabase está funcionando corretamente.",
-        });
-      } else {
-        toast({
-          title: "Erro de conexão",
-          description: result.message || "Não foi possível conectar ao Supabase.",
-          variant: "destructive"
-        });
-      }
-    } catch (error) {
-      setConnectionStatus({
-        tested: true,
-        success: false,
-        message: error instanceof Error ? error.message : "Erro desconhecido"
-      });
-      
-      toast({
-        title: "Erro ao testar conexão",
-        description: error instanceof Error ? error.message : "Erro desconhecido",
-        variant: "destructive"
-      });
-    } finally {
-      setIsTestingConnection(false);
-    }
-  };
+
 
   return (
     <div className="flex justify-center items-center min-h-screen bg-gradient-to-br from-slate-900 to-slate-700">
@@ -143,32 +96,6 @@ export default function LoginPage() {
           <CardDescription className="text-center">
             Acesse ou crie sua conta para continuar
           </CardDescription>
-          <Button 
-            onClick={testConnection} 
-            variant="outline" 
-            size="sm" 
-            className="mx-auto mt-2"
-            disabled={isTestingConnection}>
-            {isTestingConnection ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Testando conexão...
-              </>
-            ) : (
-              "Testar Conexão Supabase"
-            )}
-          </Button>
-          
-          {connectionStatus.tested && (
-            <Alert variant={connectionStatus.success ? "default" : "destructive"} className="mt-2">
-              <AlertTitle>{connectionStatus.success ? "Conexão OK" : "Problema de conexão"}</AlertTitle>
-              <AlertDescription>
-                {connectionStatus.message || (connectionStatus.success 
-                  ? "Supabase está configurado corretamente." 
-                  : "Não foi possível conectar ao Supabase.")}
-              </AlertDescription>
-            </Alert>
-          )}
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="login" className="w-full">
