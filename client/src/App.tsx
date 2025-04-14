@@ -19,6 +19,7 @@ import SupabaseAdminPage from "@/pages/supabase-admin";
 import UpdateRolePage from "@/pages/update-role";
 import { SupabaseAuthProvider, useSupabaseAuth } from "./hooks/use-supabase-auth";
 import { useSupabaseProfile } from "./hooks/use-supabase-profile";
+import { DataSyncProvider } from "./components/data-sync/DataSyncProvider";
 
 // Componente de proteção de rota para verificar se o usuário está autenticado
 function PrivateRoute({ component: Component, ...rest }: any) {
@@ -108,8 +109,10 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <SupabaseAuthProvider>
-        <Router />
-        <Toaster />
+        <DataSyncProvider>
+          <Router />
+          <Toaster />
+        </DataSyncProvider>
       </SupabaseAuthProvider>
     </QueryClientProvider>
   );
