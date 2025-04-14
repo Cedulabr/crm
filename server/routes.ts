@@ -14,6 +14,8 @@ import {
 } from "@shared/schema";
 import { checkSupabaseTables } from './routes/check-supabase-tables';
 import { createClient } from '@supabase/supabase-js';
+import { WebSocketServer } from 'ws';
+import importExportRoutes from './routes/import-export';
 
 // Importar o cliente Supabase centralizado
 import supabase, { isSupabaseConfigured } from './supabaseClient';
