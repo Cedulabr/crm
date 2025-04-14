@@ -1,244 +1,227 @@
-import * as XLSX from 'xlsx';
-import { supabase } from './supabase';
-import { getAuthToken, syncAuthToken } from './auth-utils';
-import { Client, InsertClient, Proposal, InsertProposal } from '@shared/schema';
+import * as xlsx from 'xlsx';
+import { getSupabaseClient } from './supabase';
+import { addAuthTokenToHeaders, syncAuthToken } from './auth-utils';
 
 /**
  * Exporta dados para um arquivo Excel
- * 
- * @param data Dados a serem exportados
- * @param fileName Nome do arquivo a ser gerado
- * @param sheetName Nome da planilha no Excel
+ * @param data Array de objetos a serem exportados
+ * @param fileName Nome do arquivo (sem extensão)
+ * @param sheetName Nome da planilha
+ * @returns Boolean indicando se a exportação foi bem-sucedida
  */
-export function exportToExcel(data: any[], fileName: string, sheetName: string = 'Dados') {
+export function exportToExcel(
+  data: any[],
+  fileName: string = 'export',
+  sheetName: string = 'Dados'
+): boolean {
   try {
-    // Prepara os dados para exportação, removendo campos sensíveis e formatando datas
-    const exportData = data.map(item => {
-      const exportItem = { ...item };
-      
-      // Remove campos que não devem ser exportados
-      delete exportItem.password;
-      delete exportItem.token;
-      
-      // Formata datas para string ISO
-      Object.keys(exportItem).forEach(key => {
-        if (exportItem[key] instanceof Date) {
-          exportItem[key] = exportItem[key].toISOString().split('T')[0];
-        }
-      });
-      
-      return exportItem;
-    });
+    if (!data || data.length === 0) {
+      console.error('Sem dados para exportar');
+      return false;
+    }
+
+    // Criar uma nova planilha
+    const worksheet = xlsx.utils.json_to_sheet(data);
     
-    // Cria a planilha
-    const worksheet = XLSX.utils.json_to_sheet(exportData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+    // Criar um novo workbook e adicionar a planilha
+    const workbook = xlsx.utils.book_new();
+    xlsx.utils.book_append_sheet(workbook, worksheet, sheetName);
     
-    // Gera o arquivo e faz o download
-    XLSX.writeFile(workbook, `${fileName}.xlsx`);
+    // Salvar o arquivo
+    xlsx.writeFile(workbook, `${fileName}.xlsx`);
     
     return true;
   } catch (error) {
     console.error('Erro ao exportar para Excel:', error);
-    throw new Error('Não foi possível exportar os dados para Excel.');
+    return false;
   }
 }
 
 /**
- * Importa dados de um arquivo Excel
- * 
- * @param file Arquivo Excel a ser importado
- * @param sheetName Nome da planilha a ser importada (opcional)
- * @returns Os dados importados como array de objetos
+ * Importa clientes de um arquivo Excel
+ * @param file Arquivo Excel
+ * @returns Promise com array de clientes importados
  */
-export async function importFromExcel(file: File, sheetName?: string): Promise<any[]> {
+export async function importClientsFromExcel(file: File): Promise<any[]> {
+  return importFromExcel(file, 'clients');
+}
+
+/**
+ * Importa propostas de um arquivo Excel
+ * @param file Arquivo Excel
+ * @returns Promise com array de propostas importadas
+ */
+export async function importProposalsFromExcel(file: File): Promise<any[]> {
+  return importFromExcel(file, 'proposals');
+}
+
+/**
+ * Função genérica para importar dados de um arquivo Excel
+ * @param file Arquivo Excel
+ * @param type Tipo de dado ('clients' ou 'proposals')
+ * @returns Promise com array de dados importados
+ */
+async function importFromExcel(file: File, type: 'clients' | 'proposals'): Promise<any[]> {
   try {
-    // Assegura que o token está sincronizado antes de importar
+    // Garantir que o token esteja sincronizado
     await syncAuthToken();
     
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      
-      reader.onload = async (e) => {
+    // Obter cliente Supabase
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      throw new Error('Cliente Supabase não disponível');
+    }
+    
+    // Ler o arquivo Excel
+    const data = await readExcelFile(file);
+    if (!data || data.length === 0) {
+      throw new Error('Arquivo vazio ou inválido');
+    }
+    
+    // Validar e formatar os dados conforme o tipo
+    let processedData: any[] = [];
+    const errors: any[] = [];
+    
+    if (type === 'clients') {
+      // Processar cada linha como um cliente
+      for (const row of data) {
         try {
-          if (!e.target?.result) {
-            throw new Error('Erro ao ler o arquivo.');
+          // Validar dados mínimos do cliente
+          if (!row.name) {
+            errors.push(`Cliente sem nome: ${JSON.stringify(row)}`);
+            continue;
           }
           
-          // Lê o arquivo Excel
-          const data = new Uint8Array(e.target.result as ArrayBuffer);
-          const workbook = XLSX.read(data, { type: 'array' });
+          // Formatar os dados do cliente
+          const client = {
+            name: row.name,
+            email: row.email || null,
+            phone: row.phone || null,
+            document: row.document || row.cpf || row.cnpj || null,
+            address: row.address || null,
+            city: row.city || null,
+            state: row.state || null,
+            postal_code: row.postal_code || row.zip || row.cep || null,
+            notes: row.notes || null,
+            organization_id: Number(row.organization_id) || 1,
+            created_by: row.created_by || null,
+            status: row.status || 'active'
+          };
           
-          // Se não especificou o nome da planilha, usa a primeira
-          const sheet = sheetName 
-            ? workbook.Sheets[sheetName] 
-            : workbook.Sheets[workbook.SheetNames[0]];
+          // Inserir no banco de dados
+          const { data: insertedClient, error } = await supabase
+            .from('clients')
+            .insert(client)
+            .select()
+            .single();
           
-          if (!sheet) {
-            throw new Error(`Planilha ${sheetName || 'especificada'} não encontrada no arquivo.`);
-          }
-          
-          // Converte para JSON
-          const jsonData = XLSX.utils.sheet_to_json(sheet);
-          resolve(jsonData);
+          if (error) throw error;
+          processedData.push(insertedClient);
         } catch (error) {
-          console.error('Erro ao processar arquivo Excel:', error);
-          reject(new Error('Não foi possível processar o arquivo Excel.'));
+          errors.push(`Erro ao processar cliente: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
         }
-      };
-      
-      reader.onerror = () => {
-        reject(new Error('Erro ao ler o arquivo.'));
-      };
-      
-      reader.readAsArrayBuffer(file);
-    });
-  } catch (error) {
-    console.error('Erro ao importar do Excel:', error);
-    throw new Error('Não foi possível importar os dados do Excel.');
-  }
-}
-
-/**
- * Importa clientes de um arquivo Excel para o Supabase
- * 
- * @param file Arquivo Excel com dados de clientes
- * @returns Os clientes importados
- */
-export async function importClientsFromExcel(file: File): Promise<Client[]> {
-  try {
-    // Assegura que o token está sincronizado antes de importar
-    await syncAuthToken();
-    const token = await getAuthToken();
-    
-    if (!token) {
-      throw new Error('Não autenticado. Faça login novamente.');
+      }
+    } else if (type === 'proposals') {
+      // Processar cada linha como uma proposta
+      for (const row of data) {
+        try {
+          // Validar dados mínimos da proposta
+          if (!row.client_id) {
+            errors.push(`Proposta sem client_id: ${JSON.stringify(row)}`);
+            continue;
+          }
+          
+          if (!row.product_id) {
+            errors.push(`Proposta sem product_id: ${JSON.stringify(row)}`);
+            continue;
+          }
+          
+          // Formatar os dados da proposta
+          const proposal = {
+            client_id: Number(row.client_id),
+            product_id: Number(row.product_id),
+            value: Number(row.value) || 0,
+            installments: Number(row.installments) || 1,
+            status: row.status || 'pending',
+            notes: row.notes || null,
+            organization_id: Number(row.organization_id) || 1,
+            created_by: row.created_by || null,
+            convenio_id: Number(row.convenio_id) || null,
+            bank_id: Number(row.bank_id) || null
+          };
+          
+          // Inserir no banco de dados
+          const { data: insertedProposal, error } = await supabase
+            .from('proposals')
+            .insert(proposal)
+            .select()
+            .single();
+          
+          if (error) throw error;
+          processedData.push(insertedProposal);
+        } catch (error) {
+          errors.push(`Erro ao processar proposta: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+        }
+      }
     }
     
-    // Importa os dados do Excel
-    const jsonData = await importFromExcel(file);
-    
-    // Transforma os dados importados para o formato de Cliente
-    const clients: InsertClient[] = jsonData.map((row: any) => ({
-      name: row.name || row.nome || '',
-      email: row.email || '',
-      phone: row.phone || row.telefone || '',
-      cpf: row.cpf || '',
-      rg: row.rg || '',
-      birthdate: row.birthdate || row.data_nascimento || null,
-      address: row.address || row.endereco || '',
-      district: row.district || row.bairro || '',
-      city: row.city || row.cidade || '',
-      state: row.state || row.estado || '',
-      zipcode: row.zipcode || row.cep || '',
-      income: row.income || row.renda || 0,
-      profession: row.profession || row.profissao || '',
-      marital_status: row.marital_status || row.estado_civil || '',
-      notes: row.notes || row.observacoes || '',
-      // Campos obrigatórios com valores padrão
-      creator_id: '0',
-      organization_id: 1,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    }));
-    
-    // Envia os clientes para o servidor em lotes de 10
-    const batchSize = 10;
-    const importedClients: Client[] = [];
-    
-    for (let i = 0; i < clients.length; i += batchSize) {
-      const batch = clients.slice(i, i + batchSize);
+    // Se houver erros, lançar exceção com detalhes
+    if (errors.length > 0) {
+      const error = new Error(`Importação parcial com ${errors.length} erros`);
+      error.errors = errors;
       
-      // Faz a chamada à API com o token de autenticação
-      const response = await fetch('/api/clients/import', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(batch)
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Erro ao importar clientes');
+      // Se nenhum dado foi processado, considerar falha total
+      if (processedData.length === 0) {
+        throw error;
       }
       
-      const batchResults = await response.json();
-      importedClients.push(...batchResults);
+      // Se alguns dados foram processados, retornar resultado parcial
+      console.warn('Importação parcial com erros:', errors);
     }
     
-    return importedClients;
+    return processedData;
   } catch (error) {
-    console.error('Erro ao importar clientes:', error);
+    console.error(`Erro ao importar ${type} de Excel:`, error);
     throw error;
   }
 }
 
 /**
- * Importa propostas de um arquivo Excel para o Supabase
- * 
- * @param file Arquivo Excel com dados de propostas
- * @returns As propostas importadas
+ * Lê um arquivo Excel e retorna os dados como um array de objetos
+ * @param file Arquivo Excel
+ * @returns Promise com array de objetos
  */
-export async function importProposalsFromExcel(file: File): Promise<Proposal[]> {
-  try {
-    // Assegura que o token está sincronizado antes de importar
-    await syncAuthToken();
-    const token = await getAuthToken();
+async function readExcelFile(file: File): Promise<any[]> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
     
-    if (!token) {
-      throw new Error('Não autenticado. Faça login novamente.');
-    }
-    
-    // Importa os dados do Excel
-    const jsonData = await importFromExcel(file);
-    
-    // Transforma os dados importados para o formato de Proposta
-    const proposals: InsertProposal[] = jsonData.map((row: any) => ({
-      client_id: row.client_id || row.clientId || 0,
-      product_id: row.product_id || row.productId || 0,
-      value: row.value || row.valor || 0,
-      installments: row.installments || row.parcelas || 0,
-      status: row.status || 'pending',
-      comments: row.comments || row.observacoes || '',
-      // Campos obrigatórios com valores padrão
-      creator_id: '0',
-      organization_id: 1,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    }));
-    
-    // Envia as propostas para o servidor em lotes de 10
-    const batchSize = 10;
-    const importedProposals: Proposal[] = [];
-    
-    for (let i = 0; i < proposals.length; i += batchSize) {
-      const batch = proposals.slice(i, i + batchSize);
-      
-      // Faz a chamada à API com o token de autenticação
-      const response = await fetch('/api/proposals/import', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(batch)
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Erro ao importar propostas');
+    reader.onload = (e) => {
+      try {
+        const data = e.target?.result;
+        if (!data) {
+          return reject(new Error('Falha ao ler o arquivo'));
+        }
+        
+        // Converter os dados para um workbook
+        const workbook = xlsx.read(data, { type: 'binary' });
+        
+        // Obter a primeira planilha
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        
+        // Converter a planilha para JSON
+        const jsonData = xlsx.utils.sheet_to_json(worksheet);
+        
+        resolve(jsonData);
+      } catch (error) {
+        reject(error);
       }
-      
-      const batchResults = await response.json();
-      importedProposals.push(...batchResults);
-    }
+    };
     
-    return importedProposals;
-  } catch (error) {
-    console.error('Erro ao importar propostas:', error);
-    throw error;
-  }
+    reader.onerror = (error) => {
+      reject(error);
+    };
+    
+    reader.readAsBinaryString(file);
+  });
 }

@@ -1,19 +1,16 @@
 import { createContext, ReactNode, useContext, useEffect, useState } from "react";
-import { User as SupabaseUser, Session } from "@supabase/supabase-js";
-import {
-  supabase,
-  loginWithEmailPassword,
-  registerWithEmailPassword,
-  logout as supabaseLogout,
-  getCurrentUser,
-  syncAuthToken
-} from "../lib/supabase";
+import { User as SupabaseUser, Session, SupabaseClient } from "@supabase/supabase-js";
+import { getSupabaseClient } from "../lib/supabase";
+import { syncAuthToken } from "../lib/auth-utils";
 import { useToast } from "@/hooks/use-toast";
 
+// Tipo expandido incluindo métodos necessários para DataSyncProvider
 type SupabaseAuthContextType = {
   user: SupabaseUser | null;
   session: Session | null;
   isLoading: boolean;
+  isAuthenticated: boolean;
+  getSupabaseClient: () => SupabaseClient | null;
   login: (email: string, password: string) => Promise<any>;
   register: (email: string, password: string, userData?: any) => Promise<any>;
   logout: () => Promise<void>;
@@ -26,6 +23,12 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<SupabaseUser | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  // Função para obter o cliente Supabase
+  const getSupabaseClientInstance = (): SupabaseClient | null => {
+    return getSupabaseClient();
+  };
 
   // Carregar usuário atual quando o componente é montado
   useEffect(() => {
@@ -35,23 +38,49 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
         // Tentar sincronizar tokens primeiro para garantir consistência
         await syncAuthToken();
         
+        // Obter cliente Supabase
+        const supabase = getSupabaseClientInstance();
+        if (!supabase) {
+          console.error('Cliente Supabase não disponível');
+          setIsLoading(false);
+          return;
+        }
+        
         // Verificar se há uma sessão ativa
         const { data, error } = await supabase.auth.getSession();
         
         if (error) {
           console.error('Erro ao carregar sessão:', error);
+          setIsAuthenticated(false);
           return;
         }
         
         setSession(data.session);
+        setIsAuthenticated(!!data.session);
 
         if (data.session) {
-          const currentUser = await getCurrentUser();
-          setUser(currentUser);
+          // Obter usuário atual
+          const { data: userData, error: userError } = await supabase.auth.getUser();
+          if (userError) {
+            console.error('Erro ao obter usuário:', userError);
+            return;
+          }
+          
+          setUser(userData.user);
           
           // Garantir que o token esteja no localStorage
           if (data.session.access_token) {
             localStorage.setItem("token", data.session.access_token);
+            
+            // Salvar informações do usuário para uso na interface
+            if (userData.user) {
+              localStorage.setItem("user", JSON.stringify({
+                id: userData.user.id,
+                email: userData.user.email || '',
+                role: userData.user.user_metadata?.role || 'agent',
+                name: userData.user.user_metadata?.name || userData.user.email || ''
+              }));
+            }
           }
         }
       } catch (error) {
@@ -61,6 +90,7 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
           description: "Não foi possível obter os dados do usuário.",
           variant: "destructive",
         });
+        setIsAuthenticated(false);
       } finally {
         setIsLoading(false);
       }
@@ -69,15 +99,29 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
     loadUserSession();
 
     // Configurar listener para mudanças de autenticação
+    const supabase = getSupabaseClientInstance();
+    if (!supabase) return;
+    
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
         console.log('Auth state changed:', event);
         setSession(newSession);
         setUser(newSession?.user || null);
+        setIsAuthenticated(!!newSession);
         
         // Atualizar token no localStorage quando a sessão mudar
         if (newSession?.access_token) {
           localStorage.setItem("token", newSession.access_token);
+          
+          // Salvar informações do usuário para uso na interface
+          if (newSession.user) {
+            localStorage.setItem("user", JSON.stringify({
+              id: newSession.user.id,
+              email: newSession.user.email || '',
+              role: newSession.user.user_metadata?.role || 'agent',
+              name: newSession.user.user_metadata?.name || newSession.user.email || ''
+            }));
+          }
         } else if (event === 'SIGNED_OUT') {
           localStorage.removeItem("token");
           localStorage.removeItem("user");
@@ -95,9 +139,22 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string) => {
     try {
       setIsLoading(true);
-      const data = await loginWithEmailPassword(email, password);
+      
+      const supabase = getSupabaseClientInstance();
+      if (!supabase) {
+        throw new Error('Cliente Supabase não disponível');
+      }
+      
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+      
+      if (error) throw error;
+      
       setUser(data.user);
       setSession(data.session);
+      setIsAuthenticated(true);
       
       // Salvar token no localStorage para uso nas requisições à API
       if (data.session && data.session.access_token) {
@@ -113,6 +170,7 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
           }));
         }
       }
+      
       return data;
     } catch (error: any) {
       toast({
@@ -129,9 +187,25 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
   const register = async (email: string, password: string, userData?: any) => {
     try {
       setIsLoading(true);
-      const data = await registerWithEmailPassword(email, password, userData);
+      
+      const supabase = getSupabaseClientInstance();
+      if (!supabase) {
+        throw new Error('Cliente Supabase não disponível');
+      }
+      
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: userData || {},
+        }
+      });
+      
+      if (error) throw error;
+      
       setUser(data.user);
       setSession(data.session);
+      setIsAuthenticated(!!data.session);
       
       // Salvar token no localStorage para uso nas requisições à API
       if (data.session && data.session.access_token) {
@@ -147,6 +221,7 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
           }));
         }
       }
+      
       return data;
     } catch (error: any) {
       toast({
@@ -163,16 +238,22 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     try {
       setIsLoading(true);
-      await supabaseLogout();
+      
+      const supabase = getSupabaseClientInstance();
+      if (!supabase) {
+        throw new Error('Cliente Supabase não disponível');
+      }
+      
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      
       setUser(null);
       setSession(null);
+      setIsAuthenticated(false);
       
       // Garantir que o localStorage também seja limpo
       localStorage.removeItem("token");
       localStorage.removeItem("user");
-      
-      // O redirecionamento será gerenciado pelo Router no App.tsx
-      // quando o usuário for definido como null
     } catch (error: any) {
       toast({
         title: "Erro ao sair",
@@ -191,6 +272,8 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
         user,
         session,
         isLoading,
+        isAuthenticated,
+        getSupabaseClient: getSupabaseClientInstance,
         login,
         register,
         logout

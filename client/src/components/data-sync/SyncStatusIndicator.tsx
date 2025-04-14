@@ -1,153 +1,143 @@
 import { useEffect, useState } from 'react';
-import { useDataSync } from './DataSyncProvider';
-import { 
-  Tooltip, 
-  TooltipContent, 
-  TooltipProvider, 
-  TooltipTrigger 
-} from '@/components/ui/tooltip';
+import { RefreshCw, Check, AlertTriangle, Wifi, WifiOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Check, AlertTriangle, Clock } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useDataSync } from './DataSyncProvider';
 
 interface SyncStatusIndicatorProps {
   table: 'clients' | 'proposals' | 'organizations';
   showRefresh?: boolean;
 }
 
-export function SyncStatusIndicator({ 
-  table, 
-  showRefresh = true 
-}: SyncStatusIndicatorProps) {
+export function SyncStatusIndicator({ table, showRefresh = true }: SyncStatusIndicatorProps) {
   const { syncStatus, lastUpdate, refreshData } = useDataSync();
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Formatar a data da última atualização
-  const formatLastUpdate = (date: Date | null) => {
-    if (!date) return 'Nunca';
-    
-    // Se for hoje, mostrar apenas a hora
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const lastUpdateDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-    
-    if (lastUpdateDate.getTime() === today.getTime()) {
-      return `Hoje às ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+  // Determinar o ícone e a cor com base no status
+  const getIcon = () => {
+    const status = syncStatus[table];
+    if (status === 'connected') {
+      return <Wifi className="h-4 w-4 text-green-500" />;
+    } else if (status === 'disconnected') {
+      return <WifiOff className="h-4 w-4 text-red-500" />;
+    } else if (status === 'error') {
+      return <AlertTriangle className="h-4 w-4 text-amber-500" />;
+    } else if (status === 'synced') {
+      return <Check className="h-4 w-4 text-green-500" />;
+    } else {
+      return <Wifi className="h-4 w-4 text-neutral-400" />;
     }
-    
-    // Se for nos últimos 7 dias, mostrar o dia da semana
-    const sevenDaysAgo = new Date(now);
-    sevenDaysAgo.setDate(now.getDate() - 7);
-    
-    if (date > sevenDaysAgo) {
-      const weekdays = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
-      return `${weekdays[date.getDay()]} às ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
-    }
-    
-    // Caso contrário, mostrar a data completa
-    return `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()} às ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
   };
 
-  // Manipulador para forçar atualização
+  // Obter a mensagem de status apropriada
+  const getStatusMessage = () => {
+    let statusText = '';
+    let timeInfo = '';
+    
+    // Status base
+    const status = syncStatus[table];
+    if (status === 'connected') {
+      statusText = 'Conectado em tempo real';
+    } else if (status === 'disconnected') {
+      statusText = 'Desconectado';
+    } else if (status === 'error') {
+      statusText = 'Erro de sincronização';
+    } else if (status === 'synced') {
+      statusText = 'Dados sincronizados';
+    } else {
+      statusText = 'Status desconhecido';
+    }
+    
+    // Adicionar informação de tempo se disponível
+    if (lastUpdate[table]) {
+      const now = new Date();
+      const lastUpdateTime = lastUpdate[table] as Date;
+      const diffMs = now.getTime() - lastUpdateTime.getTime();
+      const diffMins = Math.floor(diffMs / 60000);
+      
+      if (diffMins < 1) {
+        timeInfo = 'agora mesmo';
+      } else if (diffMins < 60) {
+        timeInfo = `há ${diffMins} min`;
+      } else {
+        const diffHours = Math.floor(diffMins / 60);
+        if (diffHours < 24) {
+          timeInfo = `há ${diffHours}h`;
+        } else {
+          const diffDays = Math.floor(diffHours / 24);
+          timeInfo = `há ${diffDays}d`;
+        }
+      }
+    }
+    
+    return {
+      statusText,
+      timeInfo
+    };
+  };
+
+  const { statusText, timeInfo } = getStatusMessage();
+  
+  const getTableLabel = () => {
+    switch (table) {
+      case 'clients':
+        return 'Clientes';
+      case 'proposals':
+        return 'Propostas';
+      case 'organizations':
+        return 'Organizações';
+      default:
+        return table;
+    }
+  };
+
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
       await refreshData(table);
+    } catch (error) {
+      console.error(`Erro ao atualizar ${table}:`, error);
     } finally {
       setIsRefreshing(false);
     }
   };
 
-  // Calcular o tempo desde a última atualização
-  const [timeSinceUpdate, setTimeSinceUpdate] = useState<string>('');
-  
-  useEffect(() => {
-    // Atualizar o tempo desde a última atualização a cada minuto
-    const calculateTimeSinceUpdate = () => {
-      const lastUpdateTime = lastUpdate[table];
-      if (!lastUpdateTime) {
-        setTimeSinceUpdate('Nunca atualizado');
-        return;
-      }
-      
-      const now = new Date();
-      const diffMs = now.getTime() - lastUpdateTime.getTime();
-      const diffMins = Math.floor(diffMs / 60000);
-      
-      if (diffMins < 1) {
-        setTimeSinceUpdate('Agora mesmo');
-      } else if (diffMins < 60) {
-        setTimeSinceUpdate(`${diffMins} minuto${diffMins !== 1 ? 's' : ''} atrás`);
-      } else {
-        const diffHours = Math.floor(diffMins / 60);
-        if (diffHours < 24) {
-          setTimeSinceUpdate(`${diffHours} hora${diffHours !== 1 ? 's' : ''} atrás`);
-        } else {
-          const diffDays = Math.floor(diffHours / 24);
-          setTimeSinceUpdate(`${diffDays} dia${diffDays !== 1 ? 's' : ''} atrás`);
-        }
-      }
-    };
-    
-    calculateTimeSinceUpdate();
-    const interval = setInterval(calculateTimeSinceUpdate, 60000); // Atualizar a cada minuto
-    
-    return () => clearInterval(interval);
-  }, [lastUpdate, table]);
-
-  // Mapear nome da tabela para nome em português
-  const tableNames: Record<string, string> = {
-    clients: 'Clientes',
-    proposals: 'Propostas',
-    organizations: 'Organizações'
-  };
-
-  // Determinar o ícone e classe com base no status
-  let StatusIcon = Clock;
-  let statusClass = 'text-yellow-500';
-  let statusText = 'Aguardando';
-  
-  if (syncStatus[table]) {
-    StatusIcon = Check;
-    statusClass = 'text-green-500';
-    statusText = 'Sincronizado';
-  } else if (lastUpdate[table]) {
-    StatusIcon = AlertTriangle;
-    statusClass = 'text-amber-500';
-    statusText = 'Desatualizado';
-  }
-
   return (
-    <div className="flex items-center space-x-2">
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div className="flex items-center gap-1">
-              <StatusIcon className={`h-4 w-4 ${statusClass}`} />
-              <span className="text-sm font-medium">{tableNames[table]}</span>
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className="flex items-center gap-1">
+            <div className={`flex items-center ${showRefresh ? 'gap-1' : ''}`}>
+              {getIcon()}
+              {showRefresh && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 rounded-full"
+                  onClick={handleRefresh}
+                  disabled={isRefreshing}
+                >
+                  <RefreshCw 
+                    className={`h-3 w-3 text-neutral-500 ${isRefreshing ? 'animate-spin' : ''}`} 
+                  />
+                  <span className="sr-only">Atualizar {getTableLabel()}</span>
+                </Button>
+              )}
             </div>
-          </TooltipTrigger>
-          <TooltipContent>
-            <div className="text-sm">
-              <p><span className="font-semibold">Status:</span> {statusText}</p>
-              <p><span className="font-semibold">Última atualização:</span> {formatLastUpdate(lastUpdate[table])}</p>
-              <p><span className="font-semibold">Tempo decorrido:</span> {timeSinceUpdate}</p>
-            </div>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-      
-      {showRefresh && (
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          onClick={handleRefresh} 
-          disabled={isRefreshing}
-          className="h-8 w-8 p-0"
-        >
-          <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-          <span className="sr-only">Atualizar {tableNames[table]}</span>
-        </Button>
-      )}
-    </div>
+            {showRefresh && (
+              <span className="text-xs text-neutral-600 font-medium">
+                {getTableLabel()}
+              </span>
+            )}
+          </div>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">
+          <div className="flex flex-col text-xs">
+            <span className="font-medium">{getTableLabel()}: {statusText}</span>
+            {timeInfo && <span className="text-neutral-400">{timeInfo}</span>}
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }

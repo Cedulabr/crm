@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { createRealtimeSubscription } from '@/lib/supabase-realtime';
+import { setupRealtimeSubscription, unsubscribeFromTable } from '@/lib/supabase-realtime';
 import { useToast } from '@/hooks/use-toast';
 
 /**
@@ -76,16 +76,32 @@ export function useRealtimeData<T extends { id: number | string }>(
   // Efeito para inscrever-se nas alterações em tempo real
   useEffect(() => {
     setIsLoading(true);
-    const { subscribe, cleanup } = createRealtimeSubscription(tableName, filter);
     
     try {
-      // Inscreva-se nas alterações da tabela
-      const unsubscribe = subscribe(updateData);
+      // Configurar a assinatura em tempo real usando a nova API
+      setupRealtimeSubscription(
+        tableName as any, // Tipagem temporária
+        // Callback para quando novos dados chegarem
+        () => {
+          console.log(`Dados atualizados em ${tableName}`);
+          // A atualização específica será tratada em outro lugar
+        },
+        // Callback para erros
+        (error) => {
+          console.error(`Erro na sincronização em tempo real de ${tableName}:`, error);
+          setError(error instanceof Error ? error : new Error('Erro desconhecido na inscrição em tempo real'));
+          
+          toast({
+            title: 'Erro de conexão em tempo real',
+            description: 'Não foi possível estabelecer conexão em tempo real com o servidor.',
+            variant: 'destructive',
+          });
+        }
+      );
       
       // Limpar inscrições quando o componente for desmontado
       return () => {
-        unsubscribe();
-        cleanup();
+        unsubscribeFromTable(tableName as any); // Tipagem temporária
       };
     } catch (err) {
       setError(err instanceof Error ? err : new Error('Erro desconhecido na inscrição em tempo real'));

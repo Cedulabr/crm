@@ -1,30 +1,12 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { getSupabaseClient } from './supabase';
+import { getAuthToken, syncAuthToken } from './auth-utils';
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
     throw new Error(`${res.status}: ${text}`);
   }
-}
-
-import { supabase } from './supabase';
-
-// Função para obter o token JWT mais atualizado
-async function getAuthToken(): Promise<string> {
-  try {
-    // Tenta obter a sessão ativa do Supabase primeiro (mais confiável)
-    const { data } = await supabase.auth.getSession();
-    if (data?.session?.access_token) {
-      // Atualiza o token no localStorage quando obtido da sessão
-      localStorage.setItem("token", data.session.access_token);
-      return data.session.access_token;
-    }
-  } catch (error) {
-    console.warn("Erro ao obter sessão do Supabase:", error);
-  }
-  
-  // Fallback para o token armazenado no localStorage
-  return localStorage.getItem("token") || "";
 }
 
 export async function apiRequest(

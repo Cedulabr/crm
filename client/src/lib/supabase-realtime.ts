@@ -1,133 +1,136 @@
-import { RealtimeChannel } from '@supabase/supabase-js';
-import { supabase } from './supabase';
+import { getSupabaseClient } from './supabase';
+import { syncAuthToken } from './auth-utils';
+
+type Table = 'clients' | 'proposals' | 'organizations' | 'users';
+type RealtimeCallbackFn = () => void;
+type RealtimeErrorCallbackFn = (error: any) => void;
+
+interface ChannelSubscription {
+  table: Table;
+  channelName: string;
+  subscription: any; // RealtimeChannel
+}
+
+// Armazenar as assinaturas ativas
+const activeSubscriptions: ChannelSubscription[] = [];
 
 /**
- * Cache de inscrições para evitar múltiplas inscrições na mesma tabela
+ * Configura uma assinatura em tempo real para uma tabela específica
+ * @param table Nome da tabela
+ * @param callback Função a ser chamada quando houver mudanças
+ * @param errorCallback Função a ser chamada em caso de erro
  */
-const subscriptionCache: Record<string, RealtimeChannel> = {};
-
-/**
- * Inscreve-se em uma tabela do Supabase para receber atualizações em tempo real.
- * 
- * @param tableName Nome da tabela para se inscrever
- * @param callback Função a ser chamada quando houver alterações
- * @param filter Filtro opcional para os eventos (ex: 'id=eq.1')
- * @returns Uma função para cancelar a inscrição
- */
-export function subscribeToTable(
-  tableName: string, 
-  callback: (payload: any) => void,
-  filter?: string
-): () => void {
-  // Cria uma chave única para o cache baseada na tabela e filtro
-  const cacheKey = filter ? `${tableName}:${filter}` : tableName;
-  
-  // Se já existe uma inscrição ativa para esta tabela/filtro, retorna a função para cancelá-la
-  if (subscriptionCache[cacheKey]) {
-    // Adicionar mais um callback à inscrição existente
-    const existingChannel = subscriptionCache[cacheKey];
-    
-    // Substituir o callback existente para chamar o novo callback
-    existingChannel.on('postgres_changes', { 
-      event: '*', 
-      schema: 'public',
-      table: tableName,
-      filter: filter
-    }, (payload) => {
-      callback(payload);
-    });
-    
-    // Retorna função para cancelar esta inscrição específica
-    return () => {
-      // Implementação simplificada - em uma aplicação real, rastreariam-se todos os callbacks
-      existingChannel.unsubscribe();
-      delete subscriptionCache[cacheKey];
-    };
-  }
-  
+export async function setupRealtimeSubscription(
+  table: Table, 
+  callback: RealtimeCallbackFn,
+  errorCallback: RealtimeErrorCallbackFn
+): Promise<void> {
   try {
-    console.log(`Inscrevendo-se na tabela ${tableName}${filter ? ` com filtro ${filter}` : ''}`);
+    // Certifique-se de que o token de autenticação está sincronizado
+    await syncAuthToken();
     
-    // Cria um canal para a tabela
-    const channel = supabase.channel(`public:${tableName}${filter ? `:${filter}` : ''}`);
+    // Obter o cliente Supabase
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      throw new Error('Cliente Supabase não disponível');
+    }
     
-    // Configurar eventos que queremos ouvir
-    channel
-      .on('postgres_changes', { 
-        event: 'INSERT', 
-        schema: 'public',
-        table: tableName,
-        filter: filter
-      }, (payload) => {
-        console.log('Novo registro inserido:', payload);
-        callback({ type: 'INSERT', data: payload.new });
-      })
-      .on('postgres_changes', { 
-        event: 'UPDATE', 
-        schema: 'public',
-        table: tableName,
-        filter: filter
-      }, (payload) => {
-        console.log('Registro atualizado:', payload);
-        callback({ type: 'UPDATE', data: payload.new, oldData: payload.old });
-      })
-      .on('postgres_changes', { 
-        event: 'DELETE', 
-        schema: 'public',
-        table: tableName,
-        filter: filter
-      }, (payload) => {
-        console.log('Registro excluído:', payload);
-        callback({ type: 'DELETE', data: payload.old });
+    // Verificar se já existe uma assinatura para esta tabela
+    const existingSubscriptionIndex = activeSubscriptions.findIndex(
+      (sub) => sub.table === table
+    );
+    
+    // Se já existe, remova a assinatura atual
+    if (existingSubscriptionIndex > -1) {
+      const { subscription } = activeSubscriptions[existingSubscriptionIndex];
+      supabase.removeChannel(subscription);
+      activeSubscriptions.splice(existingSubscriptionIndex, 1);
+    }
+    
+    // Crie um nome único para o canal
+    const channelName = `realtime:${table}`;
+    
+    // Crie uma nova assinatura
+    const channel = supabase
+      .channel(channelName)
+      .on('postgres_changes', 
+        {
+          event: '*', // Todos os eventos (INSERT, UPDATE, DELETE)
+          schema: 'public',
+          table
+        }, 
+        (payload) => {
+          console.log(`Mudança em ${table}:`, payload);
+          callback();
+        }
+      )
+      .subscribe((status: any) => {
+        console.log(`Status da assinatura em ${table}:`, status);
+        
+        if (status === 'SUBSCRIPTION_ERROR' || status?.error) {
+          errorCallback(new Error(`Erro na assinatura em tempo real de ${table}`));
+        } else if (status === 'SUBSCRIBED' || status?.subscription?.state === 'SUBSCRIBED') {
+          console.log(`Assinatura em tempo real ativa para ${table}`);
+        }
       });
     
-    // Inscrever-se no canal
-    channel.subscribe((status) => {
-      console.log(`Status da inscrição em ${tableName}: ${status}`);
-      
-      if (status === 'SUBSCRIBED') {
-        // Armazenar o canal no cache
-        subscriptionCache[cacheKey] = channel;
-      }
+    // Armazenar a assinatura ativa
+    activeSubscriptions.push({
+      table,
+      channelName,
+      subscription: channel
     });
     
-    // Retorna função para cancelar a inscrição
-    return () => {
-      console.log(`Cancelando inscrição na tabela ${tableName}`);
-      channel.unsubscribe();
-      delete subscriptionCache[cacheKey];
-    };
+    console.log(`Assinatura em tempo real configurada para ${table}`);
   } catch (error) {
-    console.error(`Erro ao se inscrever na tabela ${tableName}:`, error);
-    return () => {}; // Função vazia no caso de erro
+    console.error(`Erro ao configurar assinatura em tempo real para ${table}:`, error);
+    errorCallback(error);
   }
 }
 
 /**
- * Hook do React para usar os dados em tempo real do Supabase
- * Use este hook diretamente nos componentes React
+ * Cancela a assinatura em tempo real para uma tabela específica
+ * @param table Nome da tabela
  */
-export function createRealtimeSubscription(tableName: string, filter?: string) {
-  let unsubscribe: (() => void) | null = null;
+export function unsubscribeFromTable(table: Table): void {
+  const subscriptionIndex = activeSubscriptions.findIndex(
+    (sub) => sub.table === table
+  );
   
-  const subscribe = (callback: (payload: any) => void) => {
-    // Cancela qualquer inscrição anterior
-    if (unsubscribe) {
-      unsubscribe();
+  if (subscriptionIndex > -1) {
+    const { subscription } = activeSubscriptions[subscriptionIndex];
+    const supabase = getSupabaseClient();
+    
+    if (supabase) {
+      supabase.removeChannel(subscription);
     }
     
-    // Inscreve-se na tabela
-    unsubscribe = subscribeToTable(tableName, callback, filter);
-    
-    return unsubscribe;
-  };
+    activeSubscriptions.splice(subscriptionIndex, 1);
+    console.log(`Assinatura em tempo real cancelada para ${table}`);
+  }
+}
+
+/**
+ * Cancela todas as assinaturas em tempo real
+ */
+export function unsubscribeFromAll(): void {
+  const supabase = getSupabaseClient();
   
-  const cleanup = () => {
-    if (unsubscribe) {
-      unsubscribe();
-      unsubscribe = null;
-    }
-  };
+  if (supabase) {
+    activeSubscriptions.forEach(({ subscription }) => {
+      supabase.removeChannel(subscription);
+    });
+  }
   
-  return { subscribe, cleanup };
+  activeSubscriptions.length = 0;
+  console.log('Todas as assinaturas em tempo real foram canceladas');
+}
+
+/**
+ * Verifica se há uma assinatura ativa para uma tabela específica
+ * @param table Nome da tabela
+ * @returns Booleano indicando se há uma assinatura ativa
+ */
+export function hasActiveSubscription(table: Table): boolean {
+  return activeSubscriptions.some((sub) => sub.table === table);
 }
